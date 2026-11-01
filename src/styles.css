@@ -437,6 +437,27 @@ fieldset > details {
   color: #2c563d;
   border-bottom-color: #365d42;
 }
+.collection-sort {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin: 16px 0 8px;
+}
+.collection-sort label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.collection-sort select {
+  width: auto;
+  max-width: 100%;
+  font-size: 12px;
+}
+.collection-sort p {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 .piece-row {
   display: flex;
   align-items: center;
@@ -483,6 +504,9 @@ fieldset > details {
 .piece-name > span {
   font-size: 11px;
   color: #8a8e82;
+}
+.piece-name > .piece-last-played {
+  color: #617256;
 }
 .status-dot {
   font-size: 10px;

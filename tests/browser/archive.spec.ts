@@ -14,6 +14,134 @@ async function signIn(page: import('@playwright/test').Page) {
   ).toBeVisible()
 }
 
+test('practice sorting remembers the choice, respects filters, and updates after playing', async ({
+  page,
+}) => {
+  await signIn(page)
+  const headers = { Origin: 'http://127.0.0.1:3100' }
+  async function add(title: string, status = 'learning') {
+    const response = await page.request.post('/api/tabs', {
+      headers,
+      multipart: {
+        title,
+        artist: 'Rotation studies',
+        status,
+        permission: 'confirmed',
+        file: {
+          name: 'study.txt',
+          mimeType: 'text/plain',
+          buffer: Buffer.from('An original practice reminder.'),
+        },
+      },
+    })
+    expect(response.ok()).toBe(true)
+    return response.json()
+  }
+  const recent = await add('Cedar study')
+  const older = await add('Birch study', 'familiar')
+  const unplayed = await add('Aspen study')
+  const newImport = await add('Willow study', 'familiar')
+  for (const tab of [older, recent]) {
+    const response = await page.request.patch(`/api/tabs/${tab.id}`, {
+      headers,
+      data: { markPlayed: true },
+    })
+    expect(response.ok()).toBe(true)
+  }
+
+  await page.reload()
+  const search = page.getByRole('textbox', { name: 'Search arrangements' })
+  await search.fill('Rotation studies')
+  const titles = page.locator('.piece-row .piece-name strong')
+  const sort = page.getByRole('combobox', { name: 'Sort by' })
+  await expect(sort).toHaveValue('added')
+  await expect(titles).toHaveText([
+    newImport.title,
+    unplayed.title,
+    older.title,
+    recent.title,
+  ])
+  await expect(page.locator('.continue-card')).toContainText(recent.title)
+
+  await sort.selectOption('least-recent')
+  await expect(titles).toHaveText([
+    unplayed.title,
+    newImport.title,
+    older.title,
+    recent.title,
+  ])
+  await expect(page.locator('.piece-row').first()).toContainText('Never played')
+  await expect(
+    page.locator('.piece-row').nth(2).locator('time'),
+  ).toHaveAttribute('datetime', /T/)
+  await page.getByRole('button', { name: 'Getting there', exact: true }).click()
+  await expect(titles).toHaveText([newImport.title, older.title])
+  await page.getByRole('button', { name: 'All pieces', exact: true }).click()
+  await search.fill('Birch')
+  await expect(titles).toHaveText([older.title])
+  await search.fill('Rotation studies')
+  await sort.selectOption('most-recent')
+  await expect(titles).toHaveText([
+    recent.title,
+    older.title,
+    newImport.title,
+    unplayed.title,
+  ])
+  await sort.selectOption('title')
+  await expect(titles).toHaveText([
+    unplayed.title,
+    older.title,
+    recent.title,
+    newImport.title,
+  ])
+  await sort.selectOption('least-recent')
+  await page.reload()
+  await expect(sort).toHaveValue('least-recent')
+  await search.fill('Rotation studies')
+  await expect(titles).toHaveText([
+    unplayed.title,
+    newImport.title,
+    older.title,
+    recent.title,
+  ])
+
+  await page.locator('.piece-row').first().click()
+  await page.getByRole('button', { name: 'Played today', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText(
+    'Today’s practice is recorded.',
+  )
+  await page.getByRole('link', { name: 'Your repertoire', exact: true }).click()
+  await expect(sort).toHaveValue('least-recent')
+  await expect(titles).toHaveText([
+    newImport.title,
+    older.title,
+    recent.title,
+    unplayed.title,
+  ])
+  await expect(page.locator('.piece-row').last()).toContainText('Last played')
+  await expect(page.locator('.continue-card')).toContainText(unplayed.title)
+
+  await page.locator('.arrangements').scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: test.info().outputPath('practice-sort-mobile.png'),
+  })
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.locator('.arrangements').scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: test.info().outputPath('practice-sort-desktop.png'),
+  })
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+})
+
 test('mobile note controls add, save, reload, and remove hammer-ons and pull-offs', async ({
   page,
 }) => {

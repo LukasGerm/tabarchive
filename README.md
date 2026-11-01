@@ -54,7 +54,9 @@ Autoscroll is adjustable in pixels per second, starts after a three-second count
 
 “Print / PDF” opens the browser's print flow. Structured scores use alphaTab's print layout; text/PDF readers use print CSS. Choose “Save as PDF” in the browser. There is no server-side PDF-generation queue. Existing PDF layouts cannot reflow like structured scores.
 
-The repertoire stores learning status, notes, and the last practice date. The included demo is an original exercise created for this project. Third-party music is not part of the source repository or test fixtures.
+The repertoire stores learning status, notes, and the last practice date. Tap **Played today** in the reader to record practice. In the collection, **Sort by → Least recently played** brings never-played pieces first, followed by those you have left the longest. You can also sort by most recently played, recently added (the default), or title. Each row shows its last practice date, and your sort choice is remembered in this browser. Sorting works together with search and familiarity filters.
+
+The included demo is an original exercise created for this project. Third-party music is not part of the source repository or test fixtures.
 
 ## Fretboard trainer
 

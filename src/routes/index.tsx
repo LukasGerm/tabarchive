@@ -27,6 +27,12 @@ import {
 } from 'lucide-react'
 import { api, message } from '../lib/client'
 import {
+  isRepertoireSort,
+  repertoireSortLabels,
+  sortRepertoire,
+  type RepertoireSort,
+} from '../lib/repertoire'
+import {
   demoTex,
   formatLabels,
   statusLabels,
@@ -38,6 +44,7 @@ import { Reader } from '../components/Reader'
 import { Bin } from '../components/Bin'
 
 const Trainer = lazy(() => import('../components/Trainer'))
+const sortPreferenceKey = 'tabarchive:repertoire-sort'
 
 export const Route = createFileRoute('/')({
   validateSearch: (
@@ -74,6 +81,7 @@ function Archive() {
   const [importing, setImporting] = useState(false)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<PracticeStatus | 'all'>('all')
+  const [sort, setSort] = useState<RepertoireSort>('added')
   const [creatingDemo, setCreatingDemo] = useState(false)
   const [notice, setNotice] = useState('')
   const { tab: selectedId, view } = Route.useSearch()
@@ -113,6 +121,14 @@ function Archive() {
   useEffect(() => {
     void checkSession()
   }, [checkSession])
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(sortPreferenceKey)
+      if (isRepertoireSort(saved)) setSort(saved)
+    } catch {
+      // Sorting still works when browser storage is unavailable.
+    }
+  }, [])
   useEffect(() => {
     if (authenticated && !training) void load()
     return () => {
@@ -167,23 +183,23 @@ function Archive() {
 
   const filtered = useMemo(
     () =>
-      tabs.filter(
-        (tab) =>
-          (filter === 'all' || tab.status === filter) &&
-          `${tab.title} ${tab.artist} ${tab.attribution}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
+      sortRepertoire(
+        tabs.filter(
+          (tab) =>
+            (filter === 'all' || tab.status === filter) &&
+            `${tab.title} ${tab.artist} ${tab.attribution}`
+              .toLowerCase()
+              .includes(query.toLowerCase()),
+        ),
+        sort,
       ),
-    [tabs, query, filter],
+    [tabs, query, filter, sort],
   )
   const selected = tabs.find((tab) => tab.id === selectedId)
-  const recent = [...tabs]
-    .filter((tab) => tab.format !== 'link')
-    .sort((a, b) =>
-      (b.lastPlayedAt ?? b.createdAt).localeCompare(
-        a.lastPlayedAt ?? a.createdAt,
-      ),
-    )[0]
+  const recent = sortRepertoire(
+    tabs.filter((tab) => tab.format !== 'link'),
+    'most-recent',
+  )[0]
 
   return (
     <>
@@ -412,6 +428,37 @@ function Archive() {
                 ),
               )}
             </div>
+            <div className="collection-sort">
+              <label htmlFor="repertoire-sort">Sort by</label>
+              <select
+                id="repertoire-sort"
+                value={sort}
+                aria-describedby={
+                  sort === 'least-recent' ? 'sort-hint' : undefined
+                }
+                onChange={(event) => {
+                  const value = event.target.value
+                  if (!isRepertoireSort(value)) return
+                  setSort(value)
+                  try {
+                    localStorage.setItem(sortPreferenceKey, value)
+                  } catch {
+                    // Keep the selection for this visit if storage is unavailable.
+                  }
+                }}
+              >
+                {Object.entries(repertoireSortLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {sort === 'least-recent' && (
+                <p id="sort-hint">
+                  Never played first, then the longest time away.
+                </p>
+              )}
+            </div>
             {loading ? (
               <div className="empty" role="status">
                 Loading your repertoire…
@@ -490,6 +537,25 @@ function Archive() {
                           {' '}
                           · {formatLabels[tab.format]}
                         </span>
+                      </span>
+                      <span className="piece-last-played">
+                        {tab.lastPlayedAt ? (
+                          <>
+                            Last played{' '}
+                            <time dateTime={tab.lastPlayedAt}>
+                              {new Date(tab.lastPlayedAt).toLocaleDateString(
+                                undefined,
+                                {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                },
+                              )}
+                            </time>
+                          </>
+                        ) : (
+                          'Never played'
+                        )}
                       </span>
                     </span>
                     <span className={`status-dot ${tab.status}`}>
