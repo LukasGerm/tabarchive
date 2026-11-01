@@ -1,3 +1,5 @@
+allowBuilds:
+  esbuild: true
 minimumReleaseAgeExclude:
   - '@coderline/alphatab-vite@1.9.0'
   - '@coderline/alphatab@1.9.0'

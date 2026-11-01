@@ -5,6 +5,10 @@
 !pnpm-workspace.yaml
 !tsconfig.json
 !vite.config.ts
+!scripts/
+!scripts/backup.ts
+!scripts/backup-cli.ts
+!scripts/build-backup.mjs
 !src/
 !src/**
 !public/

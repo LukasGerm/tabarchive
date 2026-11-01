@@ -1,0 +1,43 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyDeletionAndAdministration",
+      "Effect": "Deny",
+      "Action": [
+        "s3:Delete*",
+        "s3:ListAllMyBuckets",
+        "s3:CreateBucket",
+        "s3:PutBucketAcl",
+        "s3:PutObjectAcl",
+        "s3:PutBucketCORS",
+        "s3:PutBucketLogging",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutBucketTagging",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketWebsite",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutIntelligentTieringConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutReplicationConfiguration",
+        "s3:BypassGovernanceRetention"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ListArchiveBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::tabarchive"
+    },
+    {
+      "Sid": "WriteAndVerifyBackups",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::tabarchive/backups/*"
+    }
+  ]
+}

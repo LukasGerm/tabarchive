@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env node_modules/vite/bin/vite.js --host 127.0.0.1 --port 3000 --strictPort",
     "setup": "node scripts/setup.mjs",
-    "build": "vite build",
+    "build": "vite build && node scripts/build-backup.mjs",
+    "backup": "node --env-file-if-exists=.env .output/backup.mjs",
     "start": "node --env-file-if-exists=.env .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -30,12 +31,14 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
     "@coderline/alphatab-vite": "^1.9.0",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "esbuild": "^0.28.2",
     "nitro": "^3.0.261029-rc",
     "prettier": "^3.9.10",
     "typescript": "^7.0.2",
