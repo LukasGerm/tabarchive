@@ -1,0 +1,13 @@
+# Allowlist build inputs. No local secrets, imports, browser artifacts, or Git.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.json
+!vite.config.ts
+!src/
+!src/**
+!public/
+!public/**
+public/font/
+public/soundfont/

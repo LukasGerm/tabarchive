@@ -1,0 +1,9 @@
+node_modules
+.pnpm-store
+.output
+.data
+.env
+.playwright-mcp
+src/routeTree.gen.ts
+test-results
+pnpm-lock.yaml

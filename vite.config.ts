@@ -1,0 +1,14 @@
+import { defineConfig } from 'vite'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import react from '@vitejs/plugin-react'
+import { nitro } from 'nitro/vite'
+import { alphaTab } from '@coderline/alphatab-vite'
+
+export default defineConfig({
+  plugins: [
+    tanstackStart(),
+    nitro({ preset: 'node-server' }),
+    react(),
+    alphaTab(),
+  ],
+})

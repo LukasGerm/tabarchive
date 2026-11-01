@@ -1,0 +1,32 @@
+services:
+  archive:
+    build: .
+    restart: unless-stopped
+    environment:
+      ARCHIVE_PASSWORD: ${ARCHIVE_PASSWORD:?Set an owner password}
+      SESSION_SECRET: ${SESSION_SECRET:?Set a session secret}
+      APP_ORIGIN: https://${ARCHIVE_DOMAIN:?Set the archive hostname}
+    volumes:
+      - archive_data:/data
+    expose:
+      - '3000'
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      ARCHIVE_DOMAIN: ${ARCHIVE_DOMAIN:?Set the archive hostname}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - archive
+
+volumes:
+  archive_data:
+  caddy_data:
+  caddy_config:
