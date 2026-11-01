@@ -363,6 +363,10 @@
 .mode-chords .trainer-choices button {
   font-size: clamp(14px, 2.1vw, 23px);
 }
+.mode-chords .trainer-choices button > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .trainer-choices button:not([aria-disabled='true']):hover {
   background: #edf0e5;
 }
@@ -645,6 +649,7 @@
   }
   .mode-chords .trainer-choices button {
     font-size: 14px;
+    flex-direction: column;
   }
   .trainer-response {
     min-height: 72px;

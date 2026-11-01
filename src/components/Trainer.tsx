@@ -158,13 +158,17 @@ export default function Trainer() {
             aria-label="Chord collection"
           >
             <span>Shapes</span>
-            {(['open', 'barre', 'all'] as const).map((value) => (
+            {(['open', 'movable', 'all'] as const).map((value) => (
               <button
                 key={value}
                 aria-pressed={settings.chords === value}
                 onClick={() => configure({ chords: value })}
               >
-                {value === 'all' ? 'All' : value === 'open' ? 'Open' : 'Barre'}
+                {value === 'all'
+                  ? 'All'
+                  : value === 'open'
+                    ? 'Open'
+                    : 'Movable'}
               </button>
             ))}
           </div>
@@ -289,7 +293,7 @@ export default function Trainer() {
                     ? 'A red marker. Five answers. Every fret in your chosen range.'
                     : settings.mode === 'find'
                       ? 'A note and a string. Tap the right position.'
-                      : 'Recognize open and barre chord shapes.'}
+                      : 'Major, minor, dim7, add9, add11, and more. Learn open and movable shapes.'}
                 </p>
                 <button
                   className="trainer-primary"
@@ -453,6 +457,12 @@ export default function Trainer() {
           Choose frets and chord collections above the board. Changing a setting
           starts a fresh question; your session totals stay.
         </p>
+        {settings.mode === 'chords' && (
+          <p>
+            Open shapes use open strings. Movable shapes include barres and
+            compact fingerings with no open strings. All mixes both collections.
+          </p>
+        )}
         <details>
           <summary>How to read the fretboard</summary>
           <p>

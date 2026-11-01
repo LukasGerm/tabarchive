@@ -10,9 +10,41 @@ import {
   noteName,
   midiAt,
   trainerReducer,
+  type ChordShape,
   type NoteQuestion,
   type TrainerSettings,
 } from '../src/lib/trainer'
+
+const chordIntervals: Record<ChordShape['quality'], number[]> = {
+  major: [0, 4, 7],
+  minor: [0, 3, 7],
+  '7': [0, 4, 7, 10],
+  maj7: [0, 4, 7, 11],
+  m7: [0, 3, 7, 10],
+  sus2: [0, 2, 7],
+  sus4: [0, 5, 7],
+  add9: [0, 2, 4, 7],
+  madd9: [0, 2, 3, 7],
+  add11: [0, 4, 5, 7],
+  madd11: [0, 3, 5, 7],
+  dim: [0, 3, 6],
+  dim7: [0, 3, 6, 9],
+  aug: [0, 4, 8],
+  '6': [0, 4, 7, 9],
+  m6: [0, 3, 7, 9],
+  m7b5: [0, 3, 6, 10],
+  '9': [0, 2, 4, 7, 10],
+}
+
+function soundingPitches(shape: ChordShape) {
+  return [
+    ...new Set(
+      shape.frets.flatMap((fret, string) =>
+        fret === null ? [] : [pitchAt({ string, fret })],
+      ),
+    ),
+  ].sort((a, b) => a - b)
+}
 
 // Deterministic sampling without tying the tests to one shuffled order.
 function randomSequence() {
@@ -31,6 +63,7 @@ describe('fretboard music and questions', () => {
       maxFret: 12,
       notes: 'all',
       octaves: true,
+      chords: 'all',
     })
     expect(noteName(midiAt({ string: 0, fret: 0 }))).toBe('E2')
     expect(noteName(midiAt({ string: 0, fret: 12 }))).toBe('E3')
@@ -113,16 +146,34 @@ describe('fretboard music and questions', () => {
           ),
         ),
       ].sort((a, b) => a - b)
-      const expected =
-        shape.quality === 'minor'
-          ? [0, 3, 7]
-          : shape.quality === '7'
-            ? [0, 4, 7, 10]
-            : [0, 4, 7]
+      const expected = chordIntervals[shape.quality]
       // The familiar C7 x32310 voicing intentionally omits the fifth.
       expect(intervals, shape.id).toEqual(
         shape.id === 'c7-open' ? [0, 4, 10] : expected,
       )
+      expect(shape.frets.includes(0), shape.id).toBe(shape.family === 'open')
+      const fretted = shape.frets.filter(
+        (fret): fret is number => fret !== null && fret > 0,
+      )
+      expect(
+        Math.max(...fretted) - Math.min(...fretted),
+        shape.id,
+      ).toBeLessThan(5)
+      const namedPitches = shape.tones
+        .replace(/ \(.*\)/, '')
+        .split(' · ')
+        .map((tone) => {
+          const natural = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[
+            tone[0]
+          ]!
+          const accidentals = [...tone.slice(1)].reduce(
+            (offset, symbol) => offset + (symbol === '♯' ? 1 : -1),
+            0,
+          )
+          return (natural + accidentals + 12) % 12
+        })
+        .sort((a, b) => a - b)
+      expect(namedPitches, shape.id).toEqual(soundingPitches(shape))
       if (shape.barre) {
         const { from, to, fret } = shape.barre
         expect(shape.frets[from], shape.id).toBe(fret)
@@ -132,6 +183,15 @@ describe('fretboard music and questions', () => {
           expect(shape.frets[string], shape.id).toBeGreaterThanOrEqual(fret)
         }
       }
+    }
+  })
+
+  it('includes multiple voicings of every chord quality in the full collection', () => {
+    for (const quality of Object.keys(chordIntervals)) {
+      expect(
+        chordShapes.filter((shape) => shape.quality === quality).length,
+        quality,
+      ).toBeGreaterThanOrEqual(2)
     }
   })
 
@@ -194,7 +254,7 @@ describe('fretboard music and questions', () => {
 
   it('keeps chord choices unambiguous when the collection has several shapes of one chord', () => {
     const random = randomSequence()
-    for (const chords of ['open', 'barre', 'all'] as const) {
+    for (const chords of ['open', 'movable', 'all'] as const) {
       const settings: TrainerSettings = {
         ...defaultTrainerSettings,
         mode: 'chords',
@@ -214,6 +274,45 @@ describe('fretboard music and questions', () => {
           ),
         ).toEqual([{ value: question.shape.name, label: question.shape.name }])
         previous = question.id
+      }
+    }
+  })
+
+  it('can quiz every shape without offering another name for the same pitches', () => {
+    for (const chords of ['open', 'movable', 'all'] as const) {
+      const settings: TrainerSettings = {
+        ...defaultTrainerSettings,
+        mode: 'chords',
+        chords,
+      }
+      const pool = chordShapes.filter(
+        (shape) => chords === 'all' || shape.family === chords,
+      )
+      for (const [index, shape] of pool.entries()) {
+        const random = randomSequence()
+        for (let sample = 0; sample < 8; sample++) {
+          let selecting = true
+          const question = nextQuestion(settings, undefined, () => {
+            if (!selecting) return random()
+            selecting = false
+            return (index + 0.5) / pool.length
+          })
+          if (question.mode !== 'chords') throw new Error('Expected chord')
+          expect(question.shape.id).toBe(shape.id)
+          expect(question.choices).toHaveLength(4)
+          const equivalentNames = chordShapes
+            .filter(
+              (other) =>
+                soundingPitches(other).join(',') ===
+                soundingPitches(shape).join(','),
+            )
+            .map((other) => other.name)
+          expect(
+            question.choices.filter(({ value }) =>
+              equivalentNames.includes(value),
+            ),
+          ).toEqual([{ value: shape.name, label: shape.name }])
+        }
       }
     }
   })

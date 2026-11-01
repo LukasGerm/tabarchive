@@ -1,3 +1,6 @@
+import { chordShapes, type ChordShape } from './chord-shapes'
+export { chordShapes, type ChordShape } from './chord-shapes'
+
 // Strings run left-to-right in a chord diagram: low E (6) to high E (1).
 export const guitarStrings = [
   { name: 'E', number: 6, midi: 40 },
@@ -27,217 +30,6 @@ export const noteName = (
   octaves = true,
 ) => `${pitchName(midi, spelling)}${octaves ? Math.floor(midi / 12) - 1 : ''}`
 
-export type ChordShape = {
-  id: string
-  name: string
-  root: number
-  quality: 'major' | 'minor' | '7'
-  family: 'open' | 'barre'
-  frets: readonly (number | null)[]
-  tones: string
-  barre?: { fret: number; from: number; to: number }
-}
-
-export const chordShapes: ChordShape[] = [
-  {
-    id: 'c-open',
-    name: 'C major',
-    root: 0,
-    quality: 'major',
-    family: 'open',
-    frets: [null, 3, 2, 0, 1, 0],
-    tones: 'C · E · G',
-  },
-  {
-    id: 'd-open',
-    name: 'D major',
-    root: 2,
-    quality: 'major',
-    family: 'open',
-    frets: [null, null, 0, 2, 3, 2],
-    tones: 'D · F♯ · A',
-  },
-  {
-    id: 'e-open',
-    name: 'E major',
-    root: 4,
-    quality: 'major',
-    family: 'open',
-    frets: [0, 2, 2, 1, 0, 0],
-    tones: 'E · G♯ · B',
-  },
-  {
-    id: 'g-open',
-    name: 'G major',
-    root: 7,
-    quality: 'major',
-    family: 'open',
-    frets: [3, 2, 0, 0, 0, 3],
-    tones: 'G · B · D',
-  },
-  {
-    id: 'a-open',
-    name: 'A major',
-    root: 9,
-    quality: 'major',
-    family: 'open',
-    frets: [null, 0, 2, 2, 2, 0],
-    tones: 'A · C♯ · E',
-  },
-  {
-    id: 'am-open',
-    name: 'A minor',
-    root: 9,
-    quality: 'minor',
-    family: 'open',
-    frets: [null, 0, 2, 2, 1, 0],
-    tones: 'A · C · E',
-  },
-  {
-    id: 'dm-open',
-    name: 'D minor',
-    root: 2,
-    quality: 'minor',
-    family: 'open',
-    frets: [null, null, 0, 2, 3, 1],
-    tones: 'D · F · A',
-  },
-  {
-    id: 'em-open',
-    name: 'E minor',
-    root: 4,
-    quality: 'minor',
-    family: 'open',
-    frets: [0, 2, 2, 0, 0, 0],
-    tones: 'E · G · B',
-  },
-  {
-    id: 'a7-open',
-    name: 'A7',
-    root: 9,
-    quality: '7',
-    family: 'open',
-    frets: [null, 0, 2, 0, 2, 0],
-    tones: 'A · C♯ · E · G',
-  },
-  {
-    id: 'c7-open',
-    name: 'C7',
-    root: 0,
-    quality: '7',
-    family: 'open',
-    frets: [null, 3, 2, 3, 1, 0],
-    tones: 'C · E · B♭ (fifth omitted)',
-  },
-  {
-    id: 'd7-open',
-    name: 'D7',
-    root: 2,
-    quality: '7',
-    family: 'open',
-    frets: [null, null, 0, 2, 1, 2],
-    tones: 'D · F♯ · A · C',
-  },
-  {
-    id: 'e7-open',
-    name: 'E7',
-    root: 4,
-    quality: '7',
-    family: 'open',
-    frets: [0, 2, 0, 1, 0, 0],
-    tones: 'E · G♯ · B · D',
-  },
-  {
-    id: 'g7-open',
-    name: 'G7',
-    root: 7,
-    quality: '7',
-    family: 'open',
-    frets: [3, 2, 0, 0, 0, 1],
-    tones: 'G · B · D · F',
-  },
-  {
-    id: 'f-barre',
-    name: 'F major',
-    root: 5,
-    quality: 'major',
-    family: 'barre',
-    frets: [1, 3, 3, 2, 1, 1],
-    tones: 'F · A · C',
-    barre: { fret: 1, from: 0, to: 5 },
-  },
-  {
-    id: 'b-barre',
-    name: 'B major',
-    root: 11,
-    quality: 'major',
-    family: 'barre',
-    frets: [null, 2, 4, 4, 4, 2],
-    tones: 'B · D♯ · F♯',
-    barre: { fret: 2, from: 1, to: 5 },
-  },
-  {
-    id: 'bm-barre',
-    name: 'B minor',
-    root: 11,
-    quality: 'minor',
-    family: 'barre',
-    frets: [null, 2, 4, 4, 3, 2],
-    tones: 'B · D · F♯',
-    barre: { fret: 2, from: 1, to: 5 },
-  },
-  {
-    id: 'fsharp-minor-barre',
-    name: 'F♯ minor',
-    root: 6,
-    quality: 'minor',
-    family: 'barre',
-    frets: [2, 4, 4, 2, 2, 2],
-    tones: 'F♯ · A · C♯',
-    barre: { fret: 2, from: 0, to: 5 },
-  },
-  {
-    id: 'bb-barre',
-    name: 'B♭ major',
-    root: 10,
-    quality: 'major',
-    family: 'barre',
-    frets: [null, 1, 3, 3, 3, 1],
-    tones: 'B♭ · D · F',
-    barre: { fret: 1, from: 1, to: 5 },
-  },
-  {
-    id: 'c-barre',
-    name: 'C major',
-    root: 0,
-    quality: 'major',
-    family: 'barre',
-    frets: [8, 10, 10, 9, 8, 8],
-    tones: 'C · E · G',
-    barre: { fret: 8, from: 0, to: 5 },
-  },
-  {
-    id: 'g-barre',
-    name: 'G major',
-    root: 7,
-    quality: 'major',
-    family: 'barre',
-    frets: [3, 5, 5, 4, 3, 3],
-    tones: 'G · B · D',
-    barre: { fret: 3, from: 0, to: 5 },
-  },
-  {
-    id: 'am-barre',
-    name: 'A minor',
-    root: 9,
-    quality: 'minor',
-    family: 'barre',
-    frets: [5, 7, 7, 5, 5, 5],
-    tones: 'A · C · E',
-    barre: { fret: 5, from: 0, to: 5 },
-  },
-]
-
 export type TrainerMode = 'find' | 'name' | 'chords'
 export type TrainerSettings = {
   mode: TrainerMode
@@ -247,7 +39,7 @@ export type TrainerSettings = {
   notes: 'natural' | 'all'
   spelling: Spelling
   octaves: boolean
-  chords: 'open' | 'barre' | 'all'
+  chords: ChordShape['family'] | 'all'
 }
 export const defaultTrainerSettings: TrainerSettings = {
   mode: 'name',
@@ -257,7 +49,7 @@ export const defaultTrainerSettings: TrainerSettings = {
   notes: 'all',
   spelling: 'sharps',
   octaves: true,
-  chords: 'open',
+  chords: 'all',
 }
 type Choice = { value: string; label: string }
 export type NoteQuestion = {
@@ -310,6 +102,22 @@ function choose<T extends { id: string }>(
   return pool[Math.floor(random() * pool.length)]
 }
 
+function chordPitchKey(shape: ChordShape): string {
+  return [
+    ...new Set(
+      shape.frets.flatMap((fret, string) =>
+        fret === null ? [] : [pitchAt({ string, fret })],
+      ),
+    ),
+  ]
+    .sort((a, b) => a - b)
+    .join(',')
+}
+
+const chordPitchKeys = new Map(
+  chordShapes.map((shape) => [shape.id, chordPitchKey(shape)]),
+)
+
 export function nextQuestion(
   settings: TrainerSettings,
   previous?: string,
@@ -320,9 +128,18 @@ export function nextQuestion(
       (shape) => settings.chords === 'all' || shape.family === settings.chords,
     )
     const shape = choose(pool, previous, random)
-    // Several fingerings can have the same name. Answers must remain unambiguous.
+    // Different names can describe the same pitches (e.g. C6 and Am7,
+    // or inversions of symmetrical dim7/aug chords). Don't offer those together.
+    const equivalentNames = new Set(
+      chordShapes
+        .filter(
+          (item) =>
+            chordPitchKeys.get(item.id) === chordPitchKeys.get(shape.id),
+        )
+        .map((item) => item.name),
+    )
     const otherNames = [...new Set(pool.map((item) => item.name))].filter(
-      (name) => name !== shape.name,
+      (name) => name !== shape.name && !equivalentNames.has(name),
     )
     const names = [shape.name, ...shuffle(otherNames, random).slice(0, 3)]
     return {

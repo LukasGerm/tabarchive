@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { chordShapes } from '../../src/lib/chord-shapes'
 
 test.use({ hasTouch: true })
 
@@ -292,6 +293,76 @@ test('mobile note practice supports touch, keyboard, retries, and session-only p
   await expect(page.getByTestId('trainer-completed')).toHaveText('0')
 })
 
+test('diminished and added-tone shapes can be practiced, revealed, and answered', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Chord shapes', exact: true }).click()
+  await expect(
+    page
+      .getByRole('group', { name: 'Chord collection' })
+      .getByRole('button', { name: 'All', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  for (const id of [
+    'ddim-open',
+    'cdim7-movable',
+    'cadd9-open',
+    'cadd11-open',
+    'amadd11-open',
+  ]) {
+    const index = chordShapes.findIndex((shape) => shape.id === id)
+    const shape = chordShapes[index]
+    // A fresh session has no previous question to exclude from this pool.
+    await page.evaluate(
+      (value) => {
+        Math.random = () => value
+      },
+      (index + 0.5) / chordShapes.length,
+    )
+    await page.getByRole('button', { name: 'Start practice' }).click()
+    const diagram = page.getByRole('img', { name: /^Chord shape,/ })
+    for (const [string, fret] of shape.frets.entries()) {
+      await expect(diagram).toHaveAttribute(
+        'aria-label',
+        new RegExp(
+          `string ${6 - string} ${fret === null ? 'muted' : fret === 0 ? 'open' : `fret ${fret}`}`,
+        ),
+      )
+    }
+    const choices = page.getByRole('group', { name: 'Answer choices' })
+    await expect(choices.getByRole('button')).toHaveCount(4)
+    if (shape.quality === 'dim7') {
+      await page.getByRole('button', { name: 'Show answer' }).click()
+      await expect(page.getByTestId('trainer-first-try')).toHaveText('0/1')
+    } else {
+      await choices.getByRole('button', { name: shape.name, exact: true }).tap()
+      await expect(page.getByTestId('trainer-first-try')).toHaveText('1/1')
+    }
+    await expect(page.getByRole('status')).toContainText(shape.name)
+    await expect(page.getByRole('status')).toContainText(
+      `Chord tones: ${shape.tones}.`,
+    )
+    for (const button of await choices.getByRole('button').all()) {
+      const bounds = (await button.boundingBox())!
+      for (const content of await button.locator('span, svg').all()) {
+        const contentBounds = (await content.boundingBox())!
+        expect(contentBounds.x).toBeGreaterThanOrEqual(bounds.x)
+        expect(contentBounds.x + contentBounds.width).toBeLessThanOrEqual(
+          bounds.x + bounds.width,
+        )
+      }
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true)
+    await capture(page, `trainer-${id}.png`)
+    await page.getByRole('button', { name: 'Reset session' }).click()
+  }
+})
+
 test('chord diagrams are answerable without leaking the name and fit mobile and desktop', async ({
   page,
 }) => {
@@ -299,13 +370,13 @@ test('chord diagrams are answerable without leaking the name and fit mobile and 
   await page.getByRole('button', { name: 'Chord shapes', exact: true }).click()
   await page
     .getByRole('group', { name: 'Chord collection' })
-    .getByRole('button', { name: 'Barre', exact: true })
+    .getByRole('button', { name: 'Movable', exact: true })
     .click()
   await page.getByRole('button', { name: 'Start practice' }).click()
   const description = (await page
     .getByRole('img', { name: /^Chord shape,/ })
     .getAttribute('aria-label'))!
-  expect(description).not.toMatch(/major|minor/)
+  expect(description).not.toMatch(/major|minor|dim|aug|add|sus/)
   const pitches = [
     ...new Set(
       [...description.matchAll(/string (\d) (muted|open|fret (\d+))/g)].flatMap(
@@ -316,23 +387,28 @@ test('chord diagrams are answerable without leaking the name and fit mobile and 
       ),
     ),
   ]
-  const harmonies = ['major', 'minor'].flatMap((quality) =>
-    Array.from({ length: 12 }, (_, root) => root).flatMap((root) => {
+  const harmonies = chordShapes
+    .filter((shape) => {
       const expected = [
-        root,
-        (root + (quality === 'minor' ? 3 : 4)) % 12,
-        (root + 7) % 12,
+        ...new Set(
+          shape.frets.flatMap((fret, string) =>
+            fret === null ? [] : [(tuning[string] + fret) % 12],
+          ),
+        ),
       ]
-      return pitches.length === 3 &&
+      return (
+        pitches.length === expected.length &&
         expected.every((pitch) => pitches.includes(pitch))
-        ? [`${root === 10 ? 'B♭' : noteNames[root]} ${quality}`]
-        : []
-    }),
-  )
-  expect(harmonies).toHaveLength(1)
+      )
+    })
+    .map((shape) => shape.name)
   const choices = page.getByRole('group', { name: 'Answer choices' })
+  const answers = (await choices.getByRole('button').allTextContents()).filter(
+    (name) => harmonies.includes(name),
+  )
+  expect(answers).toHaveLength(1)
   await expect(choices.locator('.correct-choice')).toHaveCount(0)
-  await choices.getByRole('button', { name: harmonies[0], exact: true }).tap()
+  await choices.getByRole('button', { name: answers[0], exact: true }).tap()
   await expect(page.getByRole('status')).toContainText('Chord tones:')
   await expect(page.getByTestId('trainer-first-try')).toHaveText('1/1')
   await capture(page, 'trainer-chord-mobile.png')
