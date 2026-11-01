@@ -1,5 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { chordShapes } from '../../src/lib/chord-shapes'
+import {
+  chordRoles,
+  chordToneShapes,
+  foundationQualities,
+  roleAtPitch,
+  type ChordRole,
+} from '../../src/lib/chord-tones'
+import { chordPositions, pitchAt } from '../../src/lib/trainer'
 
 test.use({ hasTouch: true })
 
@@ -361,6 +369,188 @@ test('diminished and added-tone shapes can be practiced, revealed, and answered'
     await capture(page, `trainer-${id}.png`)
     await page.getByRole('button', { name: 'Reset session' }).click()
   }
+})
+
+test('root practice finds every root, teaches inversions, and supports touch and keyboard', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Chord tones', exact: true }).click()
+  const pool = chordToneShapes.filter((shape) =>
+    foundationQualities.includes(shape.quality),
+  )
+  await page.evaluate(
+    (value) => {
+      Math.random = () => value
+    },
+    (pool.findIndex((shape) => shape.id === 'c-over-e') + 0.5) / pool.length,
+  )
+  await page.getByRole('button', { name: 'Start practice' }).click()
+  await expect(page.locator('.exercise-description')).toContainText('C/E')
+  await expect(
+    page.getByRole('region', { name: 'Chord breakdown' }),
+  ).toHaveCount(0)
+  await expect(page.locator('.labeled-tone')).toHaveCount(0)
+  await expect(page.locator('button.fret-cell')).toHaveCount(6)
+  await capture(page, 'trainer-roots-question-320.png')
+  await page.locator('[data-position="0:0"]').focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.locator('[data-position="1:3"]')).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status')).toContainText('1 of 2 found')
+  await expect(page.getByTestId('trainer-completed')).toHaveText('0')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status')).toContainText('1 of 2 found')
+  await page.locator('[data-position="0:0"]').tap()
+  await expect(page.getByRole('status')).toContainText('E is the major third')
+  await page.locator('[data-position="4:1"]').tap()
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/1')
+  await expect(page.locator('.labeled-tone')).toHaveCount(6)
+  await expect(
+    page.getByRole('region', { name: 'Chord breakdown' }),
+  ).toContainText('C is the root; E is the lowest sounding note')
+  const sizes = await page.locator('button.fret-cell').evaluateAll((cells) =>
+    cells.map((cell) => ({
+      width: cell.getBoundingClientRect().width,
+      height: cell.getBoundingClientRect().height,
+    })),
+  )
+  expect(sizes.every(({ width, height }) => width >= 44 && height >= 44)).toBe(
+    true,
+  )
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true)
+  await capture(page, 'trainer-roots-inversion-320.png')
+  await page.getByRole('button', { name: 'Next question' }).click()
+  await expect(page.locator('.labeled-tone')).toHaveCount(0)
+  await expect(
+    page.getByRole('region', { name: 'Chord breakdown' }),
+  ).toHaveCount(0)
+  await page.getByRole('button', { name: 'Show answer' }).click()
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/2')
+  await expect(
+    page.getByRole('region', { name: 'Chord breakdown' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Note roles', exact: true }).click()
+  await expect(
+    page.getByRole('group', { name: 'Answer choices' }).getByRole('button'),
+  ).toHaveCount(4)
+  await expect(page.locator('.labeled-tone')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Name a note', exact: true }).click()
+  await expect(
+    page.getByRole('group', { name: 'Chord tone exercise' }),
+  ).toHaveCount(0)
+})
+
+async function selectRoleQuestion(
+  page: Page,
+  shapeId: string,
+  role: ChordRole,
+  fullVocabulary = false,
+) {
+  const shapes = chordToneShapes.filter(
+    (shape) => fullVocabulary || foundationQualities.includes(shape.quality),
+  )
+  const candidates = shapes.flatMap((shape) =>
+    [
+      ...new Set(
+        chordPositions(shape).map((position) =>
+          roleAtPitch(shape, pitchAt(position)),
+        ),
+      ),
+    ].map((role) => ({ shape, role })),
+  )
+  const index = candidates.findIndex(
+    (candidate) => candidate.shape.id === shapeId && candidate.role === role,
+  )
+  expect(index).toBeGreaterThanOrEqual(0)
+  await page.evaluate(
+    (value) => {
+      Math.random = () => value
+    },
+    (index + 0.5) / candidates.length,
+  )
+  await page.getByRole('button', { name: 'Start practice' }).click()
+}
+
+test('note roles distinguish sevenths, explain semitones, and reveal every chord tone', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Chord tones', exact: true }).click()
+  await page.getByRole('button', { name: 'Note roles', exact: true }).click()
+  for (const [id, role, distance] of [
+    ['c7-open', '♭7', 10],
+    ['cmaj7-open', '7', 11],
+  ] as const) {
+    await selectRoleQuestion(page, id, role)
+    await expect(page.locator('.marked-note')).toHaveCount(1)
+    await expect(page.locator('.marked-note .fret-marker')).toHaveCSS(
+      'background-color',
+      'rgb(182, 95, 71)',
+    )
+    await expect(page.locator('.labeled-tone')).toHaveCount(0)
+    await capture(page, `trainer-role-question-${id}-320.png`)
+    await expect(
+      page.getByRole('img', { name: /^Chord shape,/ }),
+    ).not.toHaveAttribute('aria-label', /Roles:/)
+    const choices = page.getByRole('group', { name: 'Answer choices' })
+    await choices
+      .getByRole('button', {
+        name: role === '♭7' ? 'Major seventh · 7' : 'Minor seventh · ♭7',
+        exact: true,
+      })
+      .tap()
+    await expect(page.getByRole('status')).toContainText('Not quite')
+    await choices
+      .getByRole('button', {
+        name: `${chordRoles[role].label} · ${role}`,
+        exact: true,
+      })
+      .tap()
+    await expect(page.getByRole('status')).toContainText(
+      `${distance} semitones`,
+    )
+    await expect(page.getByRole('status')).toContainText('not seven frets')
+    await expect(
+      page.getByRole('region', { name: 'Chord breakdown' }),
+    ).toContainText(role === '♭7' ? 'B♭' : 'B')
+    if (role === '♭7')
+      await expect(
+        page.getByRole('region', { name: 'Chord breakdown' }),
+      ).toContainText('omitted')
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true)
+    await capture(page, `trainer-role-${id}-320.png`)
+    await page.getByRole('button', { name: 'Reset session' }).click()
+  }
+  await page
+    .getByRole('button', { name: 'Practice settings', exact: true })
+    .click()
+  await page.getByLabel('Chord vocabulary').selectOption('all')
+  await page.getByRole('button', { name: 'Close settings' }).click()
+  await selectRoleQuestion(page, 'cdim7-movable', '♭♭7', true)
+  await expect(page.locator('.exercise-description')).toContainText(
+    'Full vocabulary',
+  )
+  await page.getByRole('button', { name: 'Show answer' }).click()
+  await expect(page.getByRole('status')).toContainText(
+    'B♭♭ is the diminished seventh',
+  )
+  await expect(
+    page.getByRole('region', { name: 'Chord breakdown' }),
+  ).toContainText('Diminished seventh · ♭♭7')
+  await capture(page, 'trainer-diminished-role-320.png')
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await capture(page, 'trainer-roles-desktop.png')
 })
 
 test('chord diagrams are answerable without leaking the name and fit mobile and desktop', async ({

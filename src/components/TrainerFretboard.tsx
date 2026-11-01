@@ -7,6 +7,7 @@ import {
 } from 'react'
 import {
   guitarStrings,
+  chordPositions,
   pitchAt,
   pitchName,
   positionKey,
@@ -23,6 +24,8 @@ export function TrainerFretboard({
   answerPitch,
   spelling,
   wrongPositions = [],
+  foundRoots = [],
+  toneLabels,
   onPick,
   shape,
   resolved = false,
@@ -34,18 +37,28 @@ export function TrainerFretboard({
   answerPitch?: number
   spelling: Spelling
   wrongPositions?: string[]
+  foundRoots?: string[]
+  toneLabels?: Record<string, string>
   onPick?: (position: Position) => void
   shape?: ChordShape
   resolved?: boolean
 }) {
   const board = useRef<HTMLDivElement>(null)
-  const [focus, setFocus] = useState<Position>({
-    string: activeString ?? 0,
-    fret: minFret,
-  })
+  const [focus, setFocus] = useState<Position>(
+    shape
+      ? chordPositions(shape)[0]
+      : {
+          string: activeString ?? 0,
+          fret: minFret,
+        },
+  )
   useEffect(() => {
-    setFocus({ string: activeString ?? 0, fret: minFret })
-  }, [activeString, minFret, maxFret])
+    setFocus(
+      shape
+        ? chordPositions(shape)[0]
+        : { string: activeString ?? 0, fret: minFret },
+    )
+  }, [activeString, minFret, maxFret, shape])
   const fretted =
     shape?.frets.filter((fret): fret is number => fret !== null && fret > 0) ??
     []
@@ -57,12 +70,46 @@ export function TrainerFretboard({
         (_, index) => minFret + index,
       )
   const description = shape
-    ? `Chord shape, low E to high E: ${shape.frets.map((fret, index) => `string ${6 - index} ${fret === null ? 'muted' : fret === 0 ? 'open' : `fret ${fret}`}`).join(', ')}.`
+    ? `Chord shape, low E to high E: ${shape.frets.map((fret, index) => `string ${6 - index} ${fret === null ? 'muted' : fret === 0 ? 'open' : `fret ${fret}`}`).join(', ')}.${marked ? ` Marked position: string ${6 - marked.string}, ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.` : ''}${
+        toneLabels
+          ? ` Roles: ${chordPositions(shape)
+              .map(
+                (position) =>
+                  `string ${6 - position.string}: ${toneLabels[positionKey(position)]}`,
+              )
+              .join(', ')}.`
+          : ''
+      }`
     : marked
       ? `Marked position: string ${6 - marked.string} (${guitarStrings[marked.string].name}), ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.`
       : 'Guitar fretboard. Low E is on the left; fret numbers increase downward.'
 
   function move(event: KeyboardEvent<HTMLButtonElement>, position: Position) {
+    if (shape) {
+      const positions = chordPositions(shape)
+      const index = positions.findIndex(
+        (item) => positionKey(item) === positionKey(position),
+      )
+      const next =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? positions.length - 1
+            : ['ArrowLeft', 'ArrowUp'].includes(event.key)
+              ? Math.max(0, index - 1)
+              : ['ArrowRight', 'ArrowDown'].includes(event.key)
+                ? Math.min(positions.length - 1, index + 1)
+                : undefined
+      if (next === undefined) return
+      event.preventDefault()
+      setFocus(positions[next])
+      board.current
+        ?.querySelector<HTMLButtonElement>(
+          `button[data-position="${positionKey(positions[next])}"]`,
+        )
+        ?.focus()
+      return
+    }
     const next = { ...position }
     if (event.key === 'ArrowLeft') next.string = Math.max(0, next.string - 1)
     else if (event.key === 'ArrowRight')
@@ -105,7 +152,9 @@ export function TrainerFretboard({
         role={onPick ? 'group' : 'img'}
         aria-label={
           onPick
-            ? 'Find a note on the fretboard. Use arrow keys to move between frets.'
+            ? shape
+              ? 'Find every root in the chord. Use arrow keys to move between chord notes.'
+              : 'Find a note on the fretboard. Use arrow keys to move between frets.'
             : description
         }
       >
@@ -138,26 +187,33 @@ export function TrainerFretboard({
                 pitchAt(position) === answerPitch
               const isWrong = wrongPositions.includes(key)
               const isChordTone = shape?.frets[index] === fret
+              const foundRoot = foundRoots.includes(key)
+              const toneLabel =
+                toneLabels?.[key] ?? (foundRoot ? '1' : undefined)
               const isMuted = shape?.frets[index] === null && fret === 0
               const barre = shape?.barre
               const isBarre =
                 barre?.fret === fret && index >= barre.from && index <= barre.to
-              const classes = `fret-cell ${activeString === index ? 'active-string' : ''} ${isMarked ? 'marked-note' : ''} ${isAnswer || (isMarked && resolved) ? 'answer-note' : ''} ${isWrong && !isAnswer ? 'wrong-note' : ''} ${isChordTone ? 'chord-tone' : ''} ${isBarre ? `barre-cell ${index === barre.from ? 'barre-start' : ''} ${index === barre.to ? 'barre-end' : ''}` : ''}`
-              const marker = isMuted
-                ? '×'
-                : isChordTone
-                  ? fret === 0
-                    ? '○'
-                    : '●'
-                  : isAnswer || (isMarked && resolved)
-                    ? pitchName(pitchAt(position), spelling)
-                    : isMarked
-                      ? '●'
-                      : isWrong
-                        ? '×'
-                        : fret === 0 && !shape
-                          ? '○'
-                          : ''
+              const classes = `fret-cell ${activeString === index ? 'active-string' : ''} ${isMarked ? 'marked-note' : ''} ${isAnswer || (isMarked && resolved) ? 'answer-note' : ''} ${isWrong && !isAnswer && !resolved ? 'wrong-note' : ''} ${isChordTone ? 'chord-tone' : ''} ${toneLabel ? 'labeled-tone' : ''} ${foundRoot ? 'found-root' : ''} ${isBarre ? `barre-cell ${index === barre.from ? 'barre-start' : ''} ${index === barre.to ? 'barre-end' : ''}` : ''}`
+              const marker =
+                toneLabel ??
+                (isMuted
+                  ? '×'
+                  : isWrong && !resolved
+                    ? '×'
+                    : isChordTone
+                      ? fret === 0
+                        ? '○'
+                        : '●'
+                      : isAnswer || (isMarked && resolved)
+                        ? pitchName(pitchAt(position), spelling)
+                        : isMarked
+                          ? '●'
+                          : isWrong
+                            ? '×'
+                            : fret === 0 && !shape
+                              ? '○'
+                              : '')
               const style = {
                 '--string-weight': `${2.5 - index * 0.3}px`,
               } as CSSProperties
@@ -174,7 +230,7 @@ export function TrainerFretboard({
                   )}
                 </>
               )
-              return onPick ? (
+              return onPick && (!shape || isChordTone) ? (
                 <button
                   key={index}
                   type="button"
@@ -184,18 +240,24 @@ export function TrainerFretboard({
                   tabIndex={
                     focus.string === index && focus.fret === fret ? 0 : -1
                   }
-                  aria-label={`String ${string.number} (${string.name}), ${fret === 0 ? 'open' : `fret ${fret}`}`}
-                  aria-disabled={resolved}
+                  aria-label={`String ${string.number} (${string.name}), ${fret === 0 ? 'open' : `fret ${fret}`}${shape ? `, chord note${toneLabel ? `, role ${toneLabel}` : ''}` : ''}`}
+                  aria-disabled={resolved || foundRoot || isWrong}
+                  aria-pressed={shape ? foundRoot : undefined}
                   onFocus={() => setFocus(position)}
                   onKeyDown={(event) => move(event, position)}
                   onClick={() => {
-                    if (!resolved) onPick(position)
+                    if (!resolved && !foundRoot && !isWrong) onPick(position)
                   }}
                 >
                   {content}
                 </button>
               ) : (
-                <span key={index} className={classes} style={style}>
+                <span
+                  key={index}
+                  className={classes}
+                  style={style}
+                  aria-hidden={onPick ? true : undefined}
+                >
                   {content}
                 </span>
               )

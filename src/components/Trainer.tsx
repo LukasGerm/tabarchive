@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import {
   availablePositions,
+  chordPositions,
   guitarStrings,
   initialTrainerState,
   midiAt,
@@ -25,11 +26,21 @@ import {
   type TrainerSettings,
 } from '../lib/trainer'
 import { TrainerFretboard } from './TrainerFretboard'
+import {
+  chordRoles,
+  chordToneName,
+  explainChordRole,
+  roleAtPitch,
+} from '../lib/chord-tones'
+import { ChordToneReview } from './ChordToneReview'
+import { HarmonyTrainer } from './HarmonyTrainer'
 
 const modes: { value: TrainerMode; label: string }[] = [
   { value: 'name', label: 'Name a note' },
   { value: 'find', label: 'Find a note' },
   { value: 'chords', label: 'Chord shapes' },
+  { value: 'roots', label: 'Chord tones' },
+  { value: 'harmony', label: 'Harmony' },
 ]
 const ranges = [
   { minFret: 0, maxFret: 5 },
@@ -45,14 +56,20 @@ export default function Trainer() {
   const settingsButton = useRef<HTMLButtonElement>(null)
   const prompt = useRef<HTMLHeadingElement>(null)
   const focusNext = useRef(false)
-  const { settings, question, status, wrongAnswers } = state
+  const { settings, question: currentQuestion, status, wrongAnswers } = state
+  const question = currentQuestion?.mode === 'harmony' ? null : currentQuestion
   const resolved = status !== 'waiting'
+  const toneMode = settings.mode === 'roots' || settings.mode === 'roles'
+  const chordMode = toneMode || settings.mode === 'chords'
+  const shapeQuestion = question && 'shape' in question ? question : null
+  const toneQuestion =
+    question?.mode === 'roots' || question?.mode === 'roles' ? question : null
   useLayoutEffect(() => {
     if (!focusNext.current) return
     focusNext.current = false
     prompt.current?.focus({ preventScroll: true })
     prompt.current?.scrollIntoView({ block: 'nearest' })
-  }, [question, settings.mode])
+  }, [currentQuestion, settings.mode])
   useEffect(() => {
     if (settingsOpen) dialog.current?.showModal()
     else dialog.current?.close()
@@ -63,35 +80,43 @@ export default function Trainer() {
     dispatch({
       type: 'question',
       settings: config,
-      question: nextQuestion(config, question?.id),
+      question: nextQuestion(config, currentQuestion?.id),
     })
   }
   function configure(update: Partial<TrainerSettings>) {
     const config = { ...settings, ...update }
-    if (question) begin(config)
+    if (currentQuestion) begin(config)
     else dispatch({ type: 'settings', settings: config })
   }
 
   const correctValue =
     question?.mode === 'chords'
       ? question.shape.name
-      : question
-        ? String(
-            question.mode === 'name' && settings.octaves
-              ? midiAt(question.position)
-              : question.pitch,
-          )
-        : ''
+      : question?.mode === 'roles'
+        ? question.role
+        : question?.mode === 'roots'
+          ? ''
+          : question
+            ? String(
+                question.mode === 'name' && settings.octaves
+                  ? midiAt(question.position)
+                  : question.pitch,
+              )
+            : ''
   const answerName =
     question?.mode === 'chords'
       ? question.shape.name
-      : question
-        ? noteName(
-            midiAt(question.position),
-            settings.spelling,
-            question.mode === 'name' && settings.octaves,
-          )
-        : ''
+      : question?.mode === 'roles'
+        ? `${chordRoles[question.role].label.toLowerCase()} (${question.role})`
+        : question?.mode === 'roots'
+          ? `${chordToneName(question.shape, '1')} is the root`
+          : question
+            ? noteName(
+                midiAt(question.position),
+                settings.spelling,
+                question.mode === 'name' && settings.octaves,
+              )
+            : ''
   const answerLocation =
     question?.mode === 'find'
       ? availablePositions({
@@ -107,7 +132,11 @@ export default function Trainer() {
   if (!question) feedback = 'Start a session. Nothing is saved when you leave.'
   else if (status === 'correct')
     feedback = `${wrongAnswers.length ? 'You found it' : 'Correct'} — ${answerName}.`
-  else if (status === 'revealed') feedback = `The answer is ${answerName}.`
+  else if (status === 'revealed')
+    feedback =
+      question.mode === 'roots'
+        ? `${chordToneName(question.shape, '1')} is the root. Every root is labeled 1.`
+        : `The answer is ${answerName}.`
   else if (wrongAnswers.length) {
     if (question.mode === 'find') {
       const [string, fret] = wrongAnswers.at(-1)!.split(':').map(Number)
@@ -117,6 +146,16 @@ export default function Trainer() {
     feedback = 'Name the chord. × mute · ○ open · line = barre.'
   else if (question.mode === 'find')
     feedback = 'Tap a matching fret on the highlighted string.'
+  if (question?.mode === 'roots' && !resolved) {
+    feedback = `Tap every root note in this shape. ${state.foundRoots.length} of ${question.roots.length} found.`
+    if (wrongAnswers.length) {
+      const [string, fret] = wrongAnswers.at(-1)!.split(':').map(Number)
+      const role = roleAtPitch(question.shape, pitchAt({ string, fret }))
+      feedback += ` ${chordToneName(question.shape, role)} is the ${chordRoles[role].label.toLowerCase()} (${role}); keep looking for roots.`
+    }
+  } else if (question?.mode === 'roles' && !resolved && !wrongAnswers.length) {
+    feedback = 'Name the role of the red note, measured from the chord’s root.'
+  }
 
   return (
     <main className={`trainer-page mode-${settings.mode}`}>
@@ -144,202 +183,300 @@ export default function Trainer() {
           {modes.map((mode) => (
             <button
               key={mode.value}
-              aria-pressed={settings.mode === mode.value}
+              aria-pressed={
+                settings.mode === mode.value ||
+                (mode.value === 'roots' && toneMode)
+              }
               onClick={() => configure({ mode: mode.value })}
             >
               {mode.label}
             </button>
           ))}
         </div>
-        {settings.mode === 'chords' ? (
-          <div
-            className="trainer-ranges"
-            role="group"
-            aria-label="Chord collection"
-          >
-            <span>Shapes</span>
-            {(['open', 'movable', 'all'] as const).map((value) => (
-              <button
-                key={value}
-                aria-pressed={settings.chords === value}
-                onClick={() => configure({ chords: value })}
-              >
-                {value === 'all'
-                  ? 'All'
-                  : value === 'open'
-                    ? 'Open'
-                    : 'Movable'}
-              </button>
-            ))}
-          </div>
+        {settings.mode === 'harmony' ? (
+          <HarmonyTrainer
+            question={
+              currentQuestion?.mode === 'harmony' ? currentQuestion : null
+            }
+            settings={settings}
+            status={status}
+            wrongAnswers={wrongAnswers}
+            completed={state.completed}
+            onConfigure={configure}
+            onBegin={() => begin()}
+            onAnswer={(answer) => dispatch({ type: 'answer', answer })}
+            onReveal={() => dispatch({ type: 'reveal' })}
+          />
         ) : (
-          <div className="trainer-ranges" role="group" aria-label="Fret range">
-            <span>Frets</span>
-            {ranges.map((range) => (
-              <button
-                key={`${range.minFret}-${range.maxFret}`}
-                aria-label={`Frets ${range.minFret} to ${range.maxFret}`}
-                aria-pressed={
-                  settings.minFret === range.minFret &&
-                  settings.maxFret === range.maxFret
-                }
-                onClick={() => configure(range)}
-              >
-                {range.minFret}–{range.maxFret}
-              </button>
-            ))}
-          </div>
-        )}
-        <section className="trainer-exercise" aria-labelledby="trainer-prompt">
-          <div className="trainer-question-heading">
-            <div>
-              <h2 id="trainer-prompt" ref={prompt} tabIndex={-1}>
-                {settings.mode === 'find' ? (
-                  <>
-                    Find{' '}
-                    <span className="target-note">
-                      {answerName || 'the note'}
-                    </span>
-                  </>
-                ) : settings.mode === 'chords' ? (
-                  'Which chord is this?'
-                ) : (
-                  'What note is marked?'
-                )}
-              </h2>
-              <p className="exercise-description">
-                {!question
-                  ? 'Standard tuning · low E on the left'
-                  : question.mode === 'chords'
-                    ? 'Low E → high E · standard tuning'
-                    : `String ${6 - question.position.string} · ${guitarStrings[question.position.string].name}${question.mode === 'name' ? ` · ${question.position.fret === 0 ? 'open' : `fret ${question.position.fret}`}` : ' · tap the fretboard'}`}
-              </p>
-            </div>
-            <span className="trainer-question-count">
-              {question ? `#${state.completed + (resolved ? 0 : 1)}` : 'Ready?'}
-            </span>
-          </div>
-          <div
-            className={`trainer-workspace ${!question ? 'not-started' : ''}`}
-          >
-            <TrainerFretboard
-              key={question?.id ?? 'preview'}
-              minFret={settings.minFret}
-              maxFret={settings.maxFret}
-              spelling={settings.spelling}
-              activeString={
-                question?.mode === 'find' ? question.position.string : undefined
-              }
-              marked={question?.mode === 'name' ? question.position : undefined}
-              answerPitch={
-                question?.mode === 'find' && resolved
-                  ? question.pitch
-                  : undefined
-              }
-              wrongPositions={question?.mode === 'find' ? wrongAnswers : []}
-              onPick={
-                question?.mode === 'find'
-                  ? (position) =>
-                      dispatch({
-                        type: 'answer',
-                        answer: positionKey(position),
-                      })
-                  : undefined
-              }
-              shape={question?.mode === 'chords' ? question.shape : undefined}
-              resolved={resolved}
-            />
-            {question && question.mode !== 'find' && (
+          <>
+            {toneMode && (
               <div
-                className="trainer-choices"
+                className="trainer-tone-exercises"
                 role="group"
-                aria-label="Answer choices"
+                aria-label="Chord tone exercise"
               >
-                {question.choices.map((choice) => (
+                <button
+                  aria-pressed={settings.mode === 'roots'}
+                  onClick={() => configure({ mode: 'roots' })}
+                >
+                  Find the root
+                </button>
+                <button
+                  aria-pressed={settings.mode === 'roles'}
+                  onClick={() => configure({ mode: 'roles' })}
+                >
+                  Note roles
+                </button>
+              </div>
+            )}
+            {chordMode ? (
+              <div
+                className="trainer-ranges"
+                role="group"
+                aria-label="Chord collection"
+              >
+                <span>Shapes</span>
+                {(['open', 'movable', 'all'] as const).map((value) => (
                   <button
-                    key={choice.value}
-                    className={`${resolved && choice.value === correctValue ? 'correct-choice' : ''} ${wrongAnswers.includes(choice.value) ? 'wrong-choice' : ''}`}
-                    aria-disabled={
-                      resolved || wrongAnswers.includes(choice.value)
-                    }
-                    onClick={() => {
-                      if (!resolved)
-                        dispatch({ type: 'answer', answer: choice.value })
-                    }}
+                    key={value}
+                    aria-pressed={settings.chords === value}
+                    onClick={() => configure({ chords: value })}
                   >
-                    <span>{choice.label}</span>
-                    {resolved && choice.value === correctValue && (
-                      <Check size={18} />
-                    )}
-                    {wrongAnswers.includes(choice.value) && <X size={16} />}
+                    {value === 'all'
+                      ? 'All'
+                      : value === 'open'
+                        ? 'Open'
+                        : 'Movable'}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="trainer-ranges"
+                role="group"
+                aria-label="Fret range"
+              >
+                <span>Frets</span>
+                {ranges.map((range) => (
+                  <button
+                    key={`${range.minFret}-${range.maxFret}`}
+                    aria-label={`Frets ${range.minFret} to ${range.maxFret}`}
+                    aria-pressed={
+                      settings.minFret === range.minFret &&
+                      settings.maxFret === range.maxFret
+                    }
+                    onClick={() => configure(range)}
+                  >
+                    {range.minFret}–{range.maxFret}
                   </button>
                 ))}
               </div>
             )}
-            {!question && (
-              <div className="trainer-start">
-                <span className="trainer-start-kicker">
-                  LEARN THE WHOLE NECK
-                </span>
-                <h3>
-                  {settings.mode === 'find'
-                    ? 'Find your way.'
-                    : settings.mode === 'chords'
-                      ? 'Know the shapes.'
-                      : 'See it. Name it.'}
-                </h3>
-                <p>
-                  {settings.mode === 'name'
-                    ? 'A red marker. Five answers. Every fret in your chosen range.'
-                    : settings.mode === 'find'
-                      ? 'A note and a string. Tap the right position.'
-                      : 'Major, minor, dim7, add9, add11, and more. Learn open and movable shapes.'}
-                </p>
-                <button
-                  className="trainer-primary"
-                  onClick={() => begin(settings, true)}
-                >
-                  Start practice <ArrowRight size={18} />
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="trainer-response">
-            <div
-              className={`trainer-feedback ${status === 'correct' ? 'correct' : wrongAnswers.length && !resolved ? 'retry' : ''}`}
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
+            <section
+              className="trainer-exercise"
+              aria-labelledby="trainer-prompt"
             >
-              <p>{feedback}</p>
-              {resolved && question && (
-                <p className="answer-detail">
-                  {question.mode === 'chords'
-                    ? `Chord tones: ${question.shape.tones}.`
-                    : question.mode === 'find'
-                      ? `Play ${answerLocation} on string ${6 - question.position.string}.`
-                      : `${guitarStrings[question.position.string].name} string + ${question.position.fret} semitones${settings.octaves ? ' · sounding pitch' : ''}.`}
-                </p>
+              <div className="trainer-question-heading">
+                <div>
+                  <h2 id="trainer-prompt" ref={prompt} tabIndex={-1}>
+                    {settings.mode === 'find' ? (
+                      <>
+                        Find{' '}
+                        <span className="target-note">
+                          {answerName || 'the note'}
+                        </span>
+                      </>
+                    ) : settings.mode === 'chords' ? (
+                      'Which chord is this?'
+                    ) : settings.mode === 'roots' ? (
+                      'Find every root note.'
+                    ) : settings.mode === 'roles' ? (
+                      'What is this note’s role?'
+                    ) : (
+                      'What note is marked?'
+                    )}
+                  </h2>
+                  <p className="exercise-description">
+                    {!question
+                      ? 'Standard tuning · low E on the left'
+                      : toneQuestion
+                        ? `${toneQuestion.shape.name} · ${settings.toneVocabulary === 'foundation' ? 'Foundations' : 'Full vocabulary'}${toneQuestion.mode === 'roles' ? ` · string ${6 - toneQuestion.position.string}, ${toneQuestion.position.fret === 0 ? 'open' : `fret ${toneQuestion.position.fret}`}` : ' · tap the chord notes'}`
+                        : question.mode === 'chords'
+                          ? 'Low E → high E · standard tuning'
+                          : 'position' in question
+                            ? `String ${6 - question.position.string} · ${guitarStrings[question.position.string].name}${question.mode === 'name' ? ` · ${question.position.fret === 0 ? 'open' : `fret ${question.position.fret}`}` : ' · tap the fretboard'}`
+                            : ''}
+                  </p>
+                </div>
+                <span className="trainer-question-count">
+                  {question
+                    ? `#${state.completed + (resolved ? 0 : 1)}`
+                    : 'Ready?'}
+                </span>
+              </div>
+              <div
+                className={`trainer-workspace ${!question ? 'not-started' : ''}`}
+              >
+                <TrainerFretboard
+                  key={question?.id ?? 'preview'}
+                  minFret={settings.minFret}
+                  maxFret={settings.maxFret}
+                  spelling={settings.spelling}
+                  activeString={
+                    question?.mode === 'find'
+                      ? question.position.string
+                      : undefined
+                  }
+                  marked={
+                    question?.mode === 'name' || question?.mode === 'roles'
+                      ? question.position
+                      : undefined
+                  }
+                  answerPitch={
+                    question?.mode === 'find' && resolved
+                      ? question.pitch
+                      : undefined
+                  }
+                  wrongPositions={
+                    question?.mode === 'find' || question?.mode === 'roots'
+                      ? wrongAnswers
+                      : []
+                  }
+                  foundRoots={
+                    question?.mode === 'roots' ? state.foundRoots : []
+                  }
+                  toneLabels={
+                    toneQuestion && resolved
+                      ? Object.fromEntries(
+                          chordPositions(toneQuestion.shape).map((position) => [
+                            positionKey(position),
+                            roleAtPitch(toneQuestion.shape, pitchAt(position)),
+                          ]),
+                        )
+                      : undefined
+                  }
+                  onPick={
+                    question?.mode === 'find' || question?.mode === 'roots'
+                      ? (position) =>
+                          dispatch({
+                            type: 'answer',
+                            answer: positionKey(position),
+                          })
+                      : undefined
+                  }
+                  shape={shapeQuestion?.shape}
+                  resolved={resolved}
+                />
+                {question &&
+                  question.mode !== 'find' &&
+                  question.mode !== 'roots' && (
+                    <div
+                      className="trainer-choices"
+                      role="group"
+                      aria-label="Answer choices"
+                    >
+                      {question.choices.map((choice) => (
+                        <button
+                          key={choice.value}
+                          className={`${resolved && choice.value === correctValue ? 'correct-choice' : ''} ${wrongAnswers.includes(choice.value) ? 'wrong-choice' : ''}`}
+                          aria-disabled={
+                            resolved || wrongAnswers.includes(choice.value)
+                          }
+                          onClick={() => {
+                            if (!resolved)
+                              dispatch({ type: 'answer', answer: choice.value })
+                          }}
+                        >
+                          <span>{choice.label}</span>
+                          {resolved && choice.value === correctValue && (
+                            <Check size={18} />
+                          )}
+                          {wrongAnswers.includes(choice.value) && (
+                            <X size={16} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                {!question && (
+                  <div className="trainer-start">
+                    <span className="trainer-start-kicker">
+                      LEARN THE WHOLE NECK
+                    </span>
+                    <h3>
+                      {settings.mode === 'find'
+                        ? 'Find your way.'
+                        : toneMode
+                          ? 'Know every note.'
+                          : settings.mode === 'chords'
+                            ? 'Know the shapes.'
+                            : 'See it. Name it.'}
+                    </h3>
+                    <p>
+                      {settings.mode === 'name'
+                        ? 'A red marker. Five answers. Every fret in your chosen range.'
+                        : settings.mode === 'roots'
+                          ? 'Find every root in a named chord. Learn why the root and the bass can differ.'
+                          : settings.mode === 'roles'
+                            ? 'Root, third, fifth, or seventh? Learn what each note contributes to a chord.'
+                            : settings.mode === 'find'
+                              ? 'A note and a string. Tap the right position.'
+                              : 'Major, minor, dim7, add9, add11, and more. Learn open and movable shapes.'}
+                    </p>
+                    <button
+                      className="trainer-primary"
+                      onClick={() => begin(settings, true)}
+                    >
+                      Start practice <ArrowRight size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="trainer-response">
+                <div
+                  className={`trainer-feedback ${status === 'correct' ? 'correct' : wrongAnswers.length && !resolved ? 'retry' : ''}`}
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <p>{feedback}</p>
+                  {resolved && question && (
+                    <p className="answer-detail">
+                      {question.mode === 'chords'
+                        ? `Chord tones: ${question.shape.tones}.`
+                        : question.mode === 'roots'
+                          ? explainChordRole(question.shape, '1')
+                          : question.mode === 'roles'
+                            ? explainChordRole(question.shape, question.role)
+                            : question.mode === 'find'
+                              ? `Play ${answerLocation} on string ${6 - question.position.string}.`
+                              : `${guitarStrings[question.position.string].name} string + ${question.position.fret} semitones${settings.octaves ? ' · sounding pitch' : ''}.`}
+                    </p>
+                  )}
+                </div>
+                {question &&
+                  (resolved ? (
+                    <button
+                      className="trainer-primary"
+                      onClick={() => begin(settings, true)}
+                    >
+                      Next question <ArrowRight size={18} />
+                    </button>
+                  ) : (
+                    <button
+                      className="trainer-reveal"
+                      onClick={() => dispatch({ type: 'reveal' })}
+                    >
+                      <CircleHelp size={17} /> Show answer
+                    </button>
+                  ))}
+              </div>
+              {toneQuestion && resolved && (
+                <ChordToneReview shape={toneQuestion.shape} />
               )}
-            </div>
-            {question &&
-              (resolved ? (
-                <button
-                  className="trainer-primary"
-                  onClick={() => begin(settings, true)}
-                >
-                  Next question <ArrowRight size={18} />
-                </button>
-              ) : (
-                <button
-                  className="trainer-reveal"
-                  onClick={() => dispatch({ type: 'reveal' })}
-                >
-                  <CircleHelp size={17} /> Show answer
-                </button>
-              ))}
-          </div>
-        </section>
+            </section>
+          </>
+        )}
         <footer className="trainer-session" aria-label="Session progress">
           <span>
             <strong data-testid="trainer-completed">{state.completed}</strong>{' '}
@@ -358,7 +495,7 @@ export default function Trainer() {
           <button
             className="trainer-icon-button"
             aria-label="Reset session"
-            disabled={!question && !state.completed}
+            disabled={!currentQuestion && !state.completed}
             onClick={() => dispatch({ type: 'reset' })}
           >
             <RotateCcw size={18} />
@@ -384,8 +521,12 @@ export default function Trainer() {
             <X size={21} />
           </button>
         </div>
-        <p>Standard tuning · E A D G B E</p>
-        {settings.mode !== 'chords' && (
+        <p>
+          {settings.mode === 'harmony'
+            ? 'Major-key harmony · listen, answer, and explore the notes.'
+            : 'Standard tuning · E A D G B E'}
+        </p>
+        {!chordMode && settings.mode !== 'harmony' && (
           <div className="trainer-settings-fields">
             <label>
               Focus string
@@ -453,37 +594,65 @@ export default function Trainer() {
             )}
           </div>
         )}
+        {toneMode && (
+          <div className="trainer-settings-fields">
+            <label>
+              Chord vocabulary
+              <select
+                value={settings.toneVocabulary}
+                onChange={(event) =>
+                  configure({
+                    toneVocabulary: event.target
+                      .value as TrainerSettings['toneVocabulary'],
+                  })
+                }
+              >
+                <option value="foundation">Foundations</option>
+                <option value="all">All chord types</option>
+              </select>
+            </label>
+            <p>
+              Foundations covers major, minor, 7, maj7, and m7 chords, including
+              inversions. All adds diminished, suspended, and extended chords.
+            </p>
+          </div>
+        )}
         <p className="trainer-settings-hint">
-          Choose frets and chord collections above the board. Changing a setting
-          starts a fresh question; your session totals stay.
+          {settings.mode === 'harmony'
+            ? 'Choose the exercise, major key, and chord type above the question. Playback starts only when you press Play.'
+            : 'Choose frets and chord collections above the board.'}{' '}
+          Changing a setting starts a fresh question; your session totals stay.
         </p>
-        {settings.mode === 'chords' && (
+        {chordMode && (
           <p>
             Open shapes use open strings. Movable shapes include barres and
             compact fingerings with no open strings. All mixes both collections.
           </p>
         )}
-        <details>
-          <summary>How to read the fretboard</summary>
-          <p>
-            Low E (string 6) is on the left; high E (string 1) is on the right.
-            Each fret raises the pitch by one semitone. Frets 12 and 24 repeat
-            the open note in higher octaves.
-          </p>
-          <p>
-            The red marker is the note to name. E2 is the open low E’s sounding
-            pitch. Note names use international B / B♭ notation. C♯ and D♭ are
-            the same pitch here.
-          </p>
-          <p>
-            For chords: × means mute, ○ means open, and a line joins a barre. In
-            Find a note, arrow keys move between frets; Enter or Space answers.
-          </p>
-          <p>
-            Retries and revealed answers break your streak. Practice stays in
-            memory only and resets when you leave or refresh.
-          </p>
-        </details>
+        {settings.mode !== 'harmony' && (
+          <details>
+            <summary>How to read the fretboard</summary>
+            <p>
+              Low E (string 6) is on the left; high E (string 1) is on the
+              right. Each fret raises the pitch by one semitone. Frets 12 and 24
+              repeat the open note in higher octaves.
+            </p>
+            <p>
+              The red marker is the note to name. E2 is the open low E’s
+              sounding pitch. Note names use international B / B♭ notation. C♯
+              and D♭ are the same pitch here.
+            </p>
+            <p>
+              For chords: × means mute, ○ means open, and a line joins a barre.
+              In Find a note, arrow keys move between frets; Enter or Space
+              answers.
+            </p>
+            <p>
+              Retries and revealed answers break your streak. Practice stays in
+              memory only and resets when you leave or refresh.
+            </p>
+          </details>
+        )}
         <button
           className="trainer-primary"
           onClick={() => setSettingsOpen(false)}

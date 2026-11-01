@@ -1,4 +1,17 @@
 import { chordShapes, type ChordShape } from './chord-shapes'
+import {
+  defaultHarmonySettings,
+  nextHarmonyQuestion,
+  type HarmonyQuestion,
+  type HarmonySettings,
+} from './harmony'
+import {
+  chordRoles,
+  chordToneShapes,
+  foundationQualities,
+  roleAtPitch,
+  type ChordRole,
+} from './chord-tones'
 export { chordShapes, type ChordShape } from './chord-shapes'
 
 // Strings run left-to-right in a chord diagram: low E (6) to high E (1).
@@ -30,8 +43,9 @@ export const noteName = (
   octaves = true,
 ) => `${pitchName(midi, spelling)}${octaves ? Math.floor(midi / 12) - 1 : ''}`
 
-export type TrainerMode = 'find' | 'name' | 'chords'
-export type TrainerSettings = {
+export type TrainerMode =
+  'find' | 'name' | 'chords' | 'roots' | 'roles' | 'harmony'
+export type TrainerSettings = HarmonySettings & {
   mode: TrainerMode
   minFret: 0 | 5 | 12
   maxFret: 5 | 12 | 24
@@ -40,8 +54,10 @@ export type TrainerSettings = {
   spelling: Spelling
   octaves: boolean
   chords: ChordShape['family'] | 'all'
+  toneVocabulary: 'foundation' | 'all'
 }
 export const defaultTrainerSettings: TrainerSettings = {
+  ...defaultHarmonySettings,
   mode: 'name',
   minFret: 0,
   maxFret: 12,
@@ -50,6 +66,7 @@ export const defaultTrainerSettings: TrainerSettings = {
   spelling: 'sharps',
   octaves: true,
   chords: 'all',
+  toneVocabulary: 'foundation',
 }
 type Choice = { value: string; label: string }
 export type NoteQuestion = {
@@ -65,7 +82,28 @@ export type ChordQuestion = {
   shape: ChordShape
   choices: Choice[]
 }
-export type TrainerQuestion = NoteQuestion | ChordQuestion
+export type RootQuestion = {
+  mode: 'roots'
+  id: string
+  shape: ChordShape
+  roots: Position[]
+}
+export type RoleQuestion = {
+  mode: 'roles'
+  id: string
+  shape: ChordShape
+  position: Position
+  role: ChordRole
+  choices: Choice[]
+}
+export type TrainerQuestion =
+  NoteQuestion | ChordQuestion | RootQuestion | RoleQuestion | HarmonyQuestion
+
+export function chordPositions(shape: ChordShape): Position[] {
+  return shape.frets.flatMap((fret, string) =>
+    fret === null ? [] : [{ string, fret }],
+  )
+}
 
 export function availablePositions(settings: TrainerSettings): Position[] {
   const positions: Position[] = []
@@ -123,6 +161,72 @@ export function nextQuestion(
   previous?: string,
   random = Math.random,
 ): TrainerQuestion {
+  if (settings.mode === 'harmony')
+    return nextHarmonyQuestion(settings, previous, random)
+  if (settings.mode === 'roots' || settings.mode === 'roles') {
+    const shapes = chordToneShapes.filter(
+      (shape) =>
+        (settings.chords === 'all' || shape.family === settings.chords) &&
+        (settings.toneVocabulary === 'all' ||
+          foundationQualities.includes(shape.quality)),
+    )
+    if (settings.mode === 'roots') {
+      const selected = choose(
+        shapes.map((shape) => ({ shape, id: `roots:${shape.id}` })),
+        previous,
+        random,
+      )
+      return {
+        ...selected,
+        mode: 'roots',
+        roots: chordPositions(selected.shape).filter(
+          (position) => pitchAt(position) === selected.shape.root,
+        ),
+      }
+    }
+    // Sample distinct roles so doubled roots don't drown out thirds and sevenths.
+    const candidates = shapes.flatMap((shape) => {
+      const roles = [
+        ...new Set(
+          chordPositions(shape).map((position) =>
+            roleAtPitch(shape, pitchAt(position)),
+          ),
+        ),
+      ]
+      return roles.map((role) => ({
+        id: `roles:${shape.id}:${role}`,
+        shape,
+        role,
+      }))
+    })
+    const selected = choose(candidates, previous, random)
+    const positions = chordPositions(selected.shape).filter(
+      (position) =>
+        roleAtPitch(selected.shape, pitchAt(position)) === selected.role,
+    )
+    const vocabulary: ChordRole[] =
+      settings.toneVocabulary === 'foundation'
+        ? ['1', '♭3', '3', '5', '♭7', '7']
+        : (Object.keys(chordRoles) as ChordRole[])
+    const others = vocabulary.filter((role) => role !== selected.role)
+    // Always compare the two common sevenths when either is the target.
+    const counterpart =
+      selected.role === '♭7' ? '7' : selected.role === '7' ? '♭7' : undefined
+    const distractors = shuffle(
+      others.filter((role) => role !== counterpart),
+      random,
+    ).slice(0, counterpart ? 2 : 3)
+    if (counterpart) distractors.push(counterpart)
+    return {
+      ...selected,
+      mode: 'roles',
+      position: positions[Math.floor(random() * positions.length)],
+      choices: shuffle([selected.role, ...distractors], random).map((role) => ({
+        value: role,
+        label: `${chordRoles[role].label} · ${role}`,
+      })),
+    }
+  }
   if (settings.mode === 'chords') {
     const pool = chordShapes.filter(
       (shape) => settings.chords === 'all' || shape.family === settings.chords,
@@ -195,7 +299,11 @@ export function isCorrectAnswer(
   answer: string,
   settings: TrainerSettings,
 ) {
+  if (question.mode === 'harmony') return answer === question.answer
   if (question.mode === 'chords') return answer === question.shape.name
+  if (question.mode === 'roles') return answer === question.role
+  if (question.mode === 'roots')
+    return question.roots.some((position) => positionKey(position) === answer)
   if (question.mode === 'name')
     return (
       answer ===
@@ -218,6 +326,7 @@ export type TrainerState = {
   question: TrainerQuestion | null
   status: 'waiting' | 'correct' | 'revealed'
   wrongAnswers: string[]
+  foundRoots: string[]
   completed: number
   firstTry: number
   streak: number
@@ -227,6 +336,7 @@ export const initialTrainerState: TrainerState = {
   question: null,
   status: 'waiting',
   wrongAnswers: [],
+  foundRoots: [],
   completed: 0,
   firstTry: 0,
   streak: 0,
@@ -251,6 +361,7 @@ export function trainerReducer(
       question: null,
       status: 'waiting',
       wrongAnswers: [],
+      foundRoots: [],
     }
   if (action.type === 'question')
     return {
@@ -259,6 +370,7 @@ export function trainerReducer(
       question: action.question,
       status: 'waiting',
       wrongAnswers: [],
+      foundRoots: [],
     }
   if (!state.question || state.status !== 'waiting') return state
   if (action.type === 'reveal')
@@ -269,16 +381,25 @@ export function trainerReducer(
       streak: 0,
     }
   if (state.wrongAnswers.includes(action.answer)) return state
+  if (state.foundRoots.includes(action.answer)) return state
   if (!isCorrectAnswer(state.question, action.answer, state.settings))
     return {
       ...state,
       wrongAnswers: [...state.wrongAnswers, action.answer],
       streak: 0,
     }
+  const foundRoots =
+    state.question.mode === 'roots' ? [...state.foundRoots, action.answer] : []
+  if (
+    state.question.mode === 'roots' &&
+    foundRoots.length < state.question.roots.length
+  )
+    return { ...state, foundRoots }
   const firstTry = state.wrongAnswers.length === 0
   return {
     ...state,
     status: 'correct',
+    foundRoots,
     completed: state.completed + 1,
     firstTry: state.firstTry + Number(firstTry),
     streak: firstTry ? state.streak + 1 : 0,

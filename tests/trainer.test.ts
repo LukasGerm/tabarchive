@@ -90,7 +90,8 @@ describe('fretboard music and questions', () => {
     const frets = new Set(
       Array.from({ length: 160 }, () => {
         const next = nextQuestion(defaultTrainerSettings, undefined, random)
-        if (next.mode === 'chords') throw new Error('Unexpected chord')
+        if (next.mode !== 'name' && next.mode !== 'find')
+          throw new Error('Expected note')
         return next.position.fret
       }),
     )
@@ -219,8 +220,8 @@ describe('fretboard music and questions', () => {
               const question = nextQuestion(settings, previous, random)
               expect(question.mode).toBe(mode)
               expect(question.id).not.toBe(previous)
-              if (question.mode === 'chords')
-                throw new Error('Unexpected chord')
+              if (question.mode !== 'name' && question.mode !== 'find')
+                throw new Error('Expected note')
               expect(question.position.fret).toBeGreaterThanOrEqual(minFret)
               expect(question.position.fret).toBeLessThanOrEqual(maxFret)
               if (string !== 'all')

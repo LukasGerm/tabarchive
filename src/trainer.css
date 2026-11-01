@@ -66,7 +66,7 @@
 }
 .trainer-modes {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   background: #eeefe7;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -74,6 +74,7 @@
   gap: 3px;
 }
 .trainer-modes button {
+  padding: 4px;
   min-height: 40px;
   border-radius: 7px;
   font-size: 13px;
@@ -89,6 +90,24 @@
   align-items: center;
   gap: 8px;
   min-height: 54px;
+}
+.trainer-tone-exercises {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.trainer-tone-exercises button {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--green);
+}
+.trainer-tone-exercises button[aria-pressed='true'] {
+  background: #e8eddf;
+  border-color: #9aaa93;
+  font-weight: 650;
 }
 .trainer-ranges > span {
   margin-right: auto;
@@ -332,6 +351,26 @@
   color: var(--green);
   font-size: 23px;
 }
+.chord-tone.marked-note:not(.answer-note) .fret-marker {
+  background: #b65f47;
+  color: white;
+  box-shadow: 0 0 0 3px #b65f47;
+}
+.chord-tone.wrong-note .fret-marker {
+  color: #8a3e31;
+  background: #f1d9ce;
+}
+.chord-tone.labeled-tone .fret-marker {
+  width: 26px;
+  height: 26px;
+  background: var(--green);
+  color: var(--paper);
+  font-size: 10px;
+  letter-spacing: -0.5px;
+}
+.chord-tone.found-root .fret-marker {
+  box-shadow: 0 0 0 3px #9aaa93;
+}
 .trainer-fretboard figcaption {
   color: #667468;
   font-size: 9px;
@@ -366,6 +405,56 @@
 .mode-chords .trainer-choices button > span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.mode-roles .trainer-choices button {
+  flex-direction: column;
+  font-size: clamp(12px, 1.7vw, 18px);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.chord-tone-review {
+  margin: 8px 0 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.chord-tone-review h3 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 20px;
+}
+.chord-tone-review h3 span {
+  font-family: 'DM Sans Variable', 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--green);
+}
+.chord-tone-review p {
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 8px;
+  color: #667468;
+}
+.chord-tone-review ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.chord-tone-review li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.chord-tone-review li strong {
+  min-width: 32px;
+  color: var(--green);
+  font-size: 17px;
 }
 .trainer-choices button:not([aria-disabled='true']):hover {
   background: #edf0e5;
@@ -497,8 +586,18 @@
 .trainer-start .trainer-primary {
   margin-top: 24px;
 }
-.mode-find .trainer-workspace {
+.mode-find .trainer-workspace,
+.mode-roots .trainer-workspace {
   grid-template-columns: 1fr;
+}
+.mode-roots .trainer-workspace {
+  padding: 0;
+}
+.mode-roots button.fret-cell {
+  min-height: 44px;
+}
+.mode-roots button.fret-cell:not([aria-disabled='true']):hover {
+  background: #c6d3b7;
 }
 .mode-find button.fret-cell {
   min-height: 44px;
@@ -574,6 +673,245 @@
   width: 100%;
   margin-top: 12px;
 }
+
+.harmony-trainer {
+  gap: 14px;
+}
+.harmony-exercises button {
+  padding: 6px 10px;
+}
+.harmony-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.harmony-settings label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #667468;
+  font-size: 12px;
+  min-width: 0;
+}
+.harmony-settings select {
+  min-height: 44px;
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px;
+  color: var(--ink);
+  background: var(--paper);
+  font-size: 16px;
+}
+.harmony-trainer .trainer-question-heading {
+  padding: 0;
+}
+.harmony-scale {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.harmony-scale li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 2px;
+  border-radius: 7px;
+  background: #eeefe7;
+  border: 1px solid transparent;
+}
+.harmony-scale span {
+  font-size: 10px;
+  color: #667468;
+}
+.harmony-scale strong {
+  font-size: 20px;
+  font-weight: 550;
+  color: var(--green);
+}
+.harmony-scale .selected-tone,
+.harmony-key-chords .selected-tone {
+  background: #e8eddf;
+  border-color: #9aaa93;
+}
+.harmony-scale .playing-tone,
+.harmony-progression .playing-chord {
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+}
+.harmony-intro,
+.harmony-target {
+  padding: 28px 20px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.harmony-intro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 220px;
+  gap: 16px;
+}
+.harmony-intro h3 {
+  font-size: 27px;
+}
+.harmony-intro p {
+  max-width: 460px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #667468;
+}
+.harmony-target > span {
+  font-size: 12px;
+  color: #667468;
+}
+.harmony-target > strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 52px;
+  font-weight: 500;
+  color: var(--green);
+  margin: 8px 0;
+}
+.harmony-target > p {
+  font-size: 13px;
+  color: #667468;
+}
+.harmony-playback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.harmony-playback > span {
+  font-size: 11px;
+  color: #667468;
+}
+.harmony-playback button:disabled {
+  opacity: 0.65;
+}
+.harmony-audio-error {
+  color: #8a3e31;
+  font-size: 12px;
+}
+.harmony-progression {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.harmony-progression li {
+  padding: 20px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.harmony-progression strong {
+  font-size: 28px;
+  color: var(--green);
+}
+.harmony-progression span {
+  font-size: 14px;
+  color: var(--green);
+}
+.harmony-progression small {
+  font-size: 10px;
+  color: #667468;
+}
+.harmony-progression .missing-chord {
+  border: 1px dashed #78916c;
+  background: #e8eddf;
+}
+.harmony-choices.trainer-choices {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(54px, auto);
+  padding: 0;
+}
+.harmony-choices.trainer-choices button {
+  font-size: 18px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+.harmony-choices button > span {
+  min-width: 0;
+}
+.harmony-trainer .trainer-response {
+  padding: 0 0 8px;
+}
+.harmony-key-chords {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.harmony-key-chords > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  min-width: 0;
+}
+.harmony-key-chords span,
+.harmony-key-chords small {
+  font-size: 11px;
+  color: #667468;
+}
+.harmony-key-chords strong {
+  font-size: 18px;
+  color: var(--green);
+}
+.harmony-function-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.harmony-function-flow li {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #667468;
+}
+.harmony-function-flow strong {
+  color: var(--green);
+}
+.harmony-function-flow .selected-function {
+  background: #e8eddf;
+  border-color: #9aaa93;
+}
+.harmony-voice-leading h4 {
+  font-size: 16px;
+  margin-top: 20px;
+}
+.harmony-voice-leading li strong {
+  font-size: 14px;
+}
 @media (max-width: 1150px) {
   .trainer-page {
     padding-left: 32px;
@@ -584,6 +922,30 @@
   }
 }
 @media (max-width: 600px) {
+  .harmony-settings label {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+  }
+  .harmony-exercises button {
+    font-size: 12px;
+    padding: 6px 3px;
+  }
+  .harmony-progression {
+    gap: 6px;
+  }
+  .harmony-progression li {
+    padding: 18px 4px;
+  }
+  .harmony-progression strong {
+    font-size: clamp(16px, 4.8vw, 21px);
+  }
+  .harmony-progression span {
+    font-size: 12px;
+  }
+  .harmony-function-flow {
+    grid-template-columns: 1fr;
+  }
   .app-navigation {
     margin: 0 20px;
   }
