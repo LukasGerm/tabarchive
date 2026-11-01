@@ -187,26 +187,28 @@ function Archive() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="header-inner">
-          <Brand />
-          {authenticated && (
-            <div className="header-right">
-              <span className="private-label">
-                <LockKeyhole size={13} /> Private archive
-              </span>
-              <button
-                className="icon-button"
-                onClick={() => void signOut()}
-                aria-label="Sign out"
-              >
-                <LogOut size={19} />
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-      {authenticated && (
+      {!(authenticated && training) && (
+        <header className="site-header">
+          <div className="header-inner">
+            <Brand />
+            {authenticated && (
+              <div className="header-right">
+                <span className="private-label">
+                  <LockKeyhole size={13} /> Private archive
+                </span>
+                <button
+                  className="icon-button"
+                  onClick={() => void signOut()}
+                  aria-label="Sign out"
+                >
+                  <LogOut size={19} />
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+      )}
+      {authenticated && !training && (
         <nav className="app-navigation" aria-label="Main navigation">
           <Link
             to="/"

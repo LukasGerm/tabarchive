@@ -49,10 +49,11 @@ async function signIn(page: Page) {
   ).toBeVisible()
   await expect(
     page.getByRole('navigation', { name: 'Main navigation' }),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
-    page.getByRole('link', { name: 'Trainer', exact: true }),
-  ).toHaveAttribute('aria-current', 'page')
+    page.getByRole('link', { name: 'Back to repertoire', exact: true }),
+  ).toBeVisible()
+  await expect(page.locator('.site-header')).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Name a note', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true')
@@ -71,6 +72,52 @@ async function capture(page: Page, name: string) {
     animations: 'disabled',
   })
 }
+
+test('short phone screens keep frets readable and answers clear of the response', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 402, height: 680 })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Start practice' }).click()
+  for (const viewport of [
+    { width: 402, height: 680 },
+    { width: 360, height: 640 },
+    { width: 320, height: 568 },
+  ]) {
+    await page.setViewportSize(viewport)
+    for (const range of ['Frets 0 to 12', 'Frets 12 to 24']) {
+      await page.getByRole('button', { name: range, exact: true }).click()
+      await capture(page, `trainer-short-${viewport.width}-${range}.png`)
+      const response = (await page.locator('.trainer-response').boundingBox())!
+      const choices = page.getByRole('group', { name: 'Answer choices' })
+      for (const button of await choices.getByRole('button').all()) {
+        const bounds = (await button.boundingBox())!
+        expect(bounds.height).toBeGreaterThanOrEqual(44)
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(response.y)
+      }
+      const rows = await page
+        .locator('[data-fret]')
+        .evaluateAll((frets) =>
+          frets.map((fret) => fret.getBoundingClientRect().height),
+        )
+      expect(Math.min(...rows)).toBeGreaterThanOrEqual(28)
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true)
+      await page.getByRole('button', { name: 'Show answer' }).click()
+      const feedback = (await page.getByRole('status').boundingBox())!
+      const lastChoice = (await choices
+        .getByRole('button')
+        .last()
+        .boundingBox())!
+      expect(lastChoice.y + lastChoice.height).toBeLessThanOrEqual(feedback.y)
+      await page.getByRole('button', { name: 'Next question' }).click()
+      await expect(page.locator('#trainer-prompt')).toBeInViewport({ ratio: 1 })
+    }
+  }
+})
 
 test('full-neck note naming keeps five answers alongside the board and reaches fret 24', async ({
   page,
@@ -108,11 +155,13 @@ test('full-neck note naming keeps five answers alongside the board and reaches f
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true)
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollHeight <= window.innerHeight,
-      ),
-    ).toBe(true)
+    if (viewport.height >= 844) {
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollHeight <= window.innerHeight,
+        ),
+      ).toBe(true)
+    }
     await capture(page, `trainer-name-${viewport.width}.png`)
   }
   await choices.getByRole('button', { name: await answer(), exact: true }).tap()
@@ -184,9 +233,7 @@ test('mobile note practice supports touch, keyboard, retries, and session-only p
   await expect(page.getByTestId('trainer-streak')).toHaveText('1')
   await capture(page, 'trainer-mobile.png')
   await page.getByRole('button', { name: 'Next question' }).click()
-  await expect
-    .poll(async () => (await page.locator('#trainer-prompt').boundingBox())!.y)
-    .toBeLessThan(70)
+  await expect(page.locator('#trainer-prompt')).toBeInViewport({ ratio: 1 })
   await page.locator('[data-position="1:0"]').tap()
   await expect(page.getByRole('status')).toContainText('Use string 6')
   await page.getByRole('button', { name: 'Show answer' }).click()
@@ -234,7 +281,13 @@ test('mobile note practice supports touch, keyboard, retries, and session-only p
   await expect(
     page.getByRole('button', { name: 'Start practice' }),
   ).toBeVisible()
-  await page.getByRole('link', { name: 'Repertoire', exact: true }).click()
+  await page
+    .getByRole('link', { name: 'Back to repertoire', exact: true })
+    .click()
+  await expect(
+    page.getByRole('navigation', { name: 'Main navigation' }),
+  ).toBeVisible()
+  await expect(page.locator('.site-header')).toBeVisible()
   await page.getByRole('link', { name: 'Trainer', exact: true }).click()
   await expect(page.getByTestId('trainer-completed')).toHaveText('0')
 })

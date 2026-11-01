@@ -84,7 +84,14 @@ export function TrainerFretboard({
   }
 
   return (
-    <figure className="trainer-fretboard">
+    <figure
+      className="trainer-fretboard"
+      style={
+        {
+          '--fretboard-min-height': `${24 + frets.length * (onPick ? 44 : 28)}px`,
+        } as CSSProperties
+      }
+    >
       <div className="fretboard-direction" aria-hidden="true">
         <span>Low E · thickest</span>
         <span>High E · thinnest</span>
@@ -93,7 +100,7 @@ export function TrainerFretboard({
         ref={board}
         className={`fretboard-grid ${shape ? 'chord-fretboard' : ''}`}
         style={{
-          gridTemplateRows: `28px ${frets.map((fret) => (fret === 0 ? '28px' : `minmax(${onPick ? '44px' : '0'}, ${Math.pow(2, -(fret - frets[0]) / 12)}fr)`)).join(' ')}`,
+          gridTemplateRows: `24px ${frets.map((fret) => (fret === 0 ? `${onPick ? 44 : 28}px` : `minmax(${onPick ? 44 : 28}px, 1fr)`)).join(' ')}`,
         }}
         role={onPick ? 'group' : 'img'}
         aria-label={

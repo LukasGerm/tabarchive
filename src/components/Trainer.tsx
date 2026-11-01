@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   CircleHelp,
@@ -40,6 +42,7 @@ export default function Trainer() {
   const [state, dispatch] = useReducer(trainerReducer, initialTrainerState)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const dialog = useRef<HTMLDialogElement>(null)
+  const settingsButton = useRef<HTMLButtonElement>(null)
   const prompt = useRef<HTMLHeadingElement>(null)
   const focusNext = useRef(false)
   const { settings, question, status, wrongAnswers } = state
@@ -48,8 +51,7 @@ export default function Trainer() {
     if (!focusNext.current) return
     focusNext.current = false
     prompt.current?.focus({ preventScroll: true })
-    if (settings.mode === 'find')
-      prompt.current?.scrollIntoView({ block: 'start' })
+    prompt.current?.scrollIntoView({ block: 'nearest' })
   }, [question, settings.mode])
   useEffect(() => {
     if (settingsOpen) dialog.current?.showModal()
@@ -120,8 +122,17 @@ export default function Trainer() {
     <main className={`trainer-page mode-${settings.mode}`}>
       <div className="trainer-shell">
         <header className="trainer-topbar">
+          <Link
+            to="/"
+            search={{}}
+            className="trainer-icon-button"
+            aria-label="Back to repertoire"
+          >
+            <ArrowLeft size={21} />
+          </Link>
           <h1>Fretboard trainer</h1>
           <button
+            ref={settingsButton}
             className="trainer-icon-button"
             aria-label="Practice settings"
             onClick={() => setSettingsOpen(true)}
@@ -354,7 +365,10 @@ export default function Trainer() {
         ref={dialog}
         className="trainer-settings-dialog"
         aria-labelledby="trainer-settings-title"
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          setSettingsOpen(false)
+          settingsButton.current?.focus({ preventScroll: true })
+        }}
       >
         <div className="trainer-dialog-heading">
           <h2 id="trainer-settings-title">Practice settings</h2>
