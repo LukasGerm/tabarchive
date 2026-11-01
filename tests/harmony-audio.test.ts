@@ -6,7 +6,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function delayedAudio() {
+function delayedAudio(onCreate = () => {}) {
   const contexts: DelayedAudioContext[] = []
   class DelayedAudioContext {
     state = 'suspended'
@@ -25,12 +25,70 @@ function delayedAudio() {
         }),
     )
     constructor() {
+      onCreate()
       contexts.push(this)
     }
   }
   vi.stubGlobal('AudioContext', DelayedAudioContext)
   return contexts
 }
+
+it('requests music playback before opening audio so iOS does not use its muted ambient mode', async () => {
+  vi.useFakeTimers()
+  const session = { type: 'auto' }
+  vi.stubGlobal('navigator', { audioSession: session })
+  let typeAtCreation = ''
+  const contexts = delayedAudio(() => {
+    typeAtCreation = session.type
+  })
+  const player = new HarmonyPlayer()
+  expect(session.type).toBe('auto')
+  const end = vi.fn()
+  const pending = player.play(
+    [{ notes: [], seconds: 1, step: 0 }],
+    vi.fn(),
+    end,
+  )
+  contexts[0].finishResume()
+  await pending
+  await vi.runAllTimersAsync()
+  expect(typeAtCreation).toBe('playback')
+  expect(end).toHaveBeenCalledOnce()
+  expect(contexts[0].state).toBe('closed')
+})
+
+it.each(['unavailable', 'rejected'])(
+  'still plays when the optional audio session API is %s',
+  async (support) => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'navigator',
+      support === 'unavailable'
+        ? {}
+        : {
+            audioSession: {
+              get type() {
+                return 'auto'
+              },
+              set type(_value: string) {
+                throw new Error('Audio session changes are not allowed')
+              },
+            },
+          },
+    )
+    const contexts = delayedAudio()
+    const player = new HarmonyPlayer()
+    const step = vi.fn()
+    const end = vi.fn()
+    const pending = player.play([{ notes: [], seconds: 1, step: 0 }], step, end)
+    contexts[0].finishResume()
+    await pending
+    await vi.runAllTimersAsync()
+    expect(step).toHaveBeenCalledExactlyOnceWith(0)
+    expect(end).toHaveBeenCalledOnce()
+    expect(contexts[0].state).toBe('closed')
+  },
+)
 
 it('cannot restart playback when a pending resume completes after Stop or unmount', async () => {
   vi.useFakeTimers()

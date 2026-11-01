@@ -2,6 +2,20 @@ import type { HarmonySound } from './harmony'
 
 export const midiFrequency = (midi: number) => 440 * 2 ** ((midi - 69) / 12)
 
+function requestPlaybackSession() {
+  try {
+    const session = (
+      navigator as Navigator & { audioSession?: { type: string } }
+    ).audioSession
+    // iOS treats Web Audio's default session as ambient and mutes it in Silent
+    // Mode. An explicit Play action should use the same category as music.
+    // https://bugs.webkit.org/show_bug.cgi?id=252746
+    if (session) session.type = 'playback'
+  } catch {
+    // This optional API must not prevent playback where it is restricted.
+  }
+}
+
 // Also accepts OfflineAudioContext for waveform verification.
 export function scheduleHarmonySound(
   context: BaseAudioContext,
@@ -45,6 +59,7 @@ export class HarmonyPlayer {
     onEnd: () => void,
   ) {
     this.stop()
+    requestPlaybackSession()
     const context = new AudioContext()
     this.context = context
     try {

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 type AudioTrace = {
   contexts: AudioContext[]
+  analysers: AnalyserNode[]
   tones: { frequency: number; time: number }[]
 }
 declare global {
@@ -14,12 +15,21 @@ test.use({ hasTouch: true })
 
 async function startHarmony(page: Page) {
   await page.addInitScript(() => {
-    window.harmonyAudioTrace = { contexts: [], tones: [] }
+    window.harmonyAudioTrace = { contexts: [], analysers: [], tones: [] }
     const NativeAudioContext = window.AudioContext
     window.AudioContext = class extends NativeAudioContext {
+      private analyser: AnalyserNode
       constructor(options?: AudioContextOptions) {
         super(options)
+        this.analyser = super.createAnalyser()
         window.harmonyAudioTrace.contexts.push(this)
+        window.harmonyAudioTrace.analysers.push(this.analyser)
+      }
+      createGain() {
+        const gain = super.createGain()
+        // Observe the real-time signal without changing the speaker connection.
+        gain.connect(this.analyser)
+        return gain
       }
       createOscillator() {
         const oscillator = super.createOscillator()
@@ -95,6 +105,26 @@ test('key chords teach scale stacking, play on demand, and retain scores across 
   expect(
     await page.evaluate(() => window.harmonyAudioTrace.contexts[0].state),
   ).toBe('running')
+  const sessionType = await page.evaluate(
+    () =>
+      (navigator as Navigator & { audioSession?: { type: string } })
+        .audioSession?.type,
+  )
+  // WebKit exposes the native iOS session API; Chromium may not implement it.
+  if (sessionType !== undefined) expect(sessionType).toBe('playback')
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const analyser = window.harmonyAudioTrace.analysers[0]
+        const samples = new Float32Array(analyser.fftSize)
+        analyser.getFloatTimeDomainData(samples)
+        return Math.sqrt(
+          samples.reduce((sum, sample) => sum + sample * sample, 0) /
+            samples.length,
+        )
+      }),
+    )
+    .toBeGreaterThan(0.005)
   const notes = await page.evaluate(() =>
     window.harmonyAudioTrace.tones.map(({ frequency }) =>
       Math.round(69 + 12 * Math.log2(frequency / 440)),
@@ -133,12 +163,10 @@ test('key chords teach scale stacking, play on demand, and retain scores across 
   await expect
     .poll(() =>
       page.evaluate(() =>
-        window.harmonyAudioTrace.contexts.every(
-          (context) => context.state === 'closed',
-        ),
+        window.harmonyAudioTrace.contexts.map((context) => context.state),
       ),
     )
-    .toBe(true)
+    .toEqual(['closed', 'closed'])
   await expect(
     page.getByRole('list', { name: 'F♯ major scale' }),
   ).toContainText('E♯')
