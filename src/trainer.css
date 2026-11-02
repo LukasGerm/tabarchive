@@ -704,6 +704,70 @@
   background: var(--paper);
   font-size: 16px;
 }
+.harmony-recall-setting {
+  grid-column: 1 / -1;
+}
+.harmony-answer {
+  display: grid;
+  gap: 8px;
+}
+.harmony-answer > label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green);
+}
+.harmony-answer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.harmony-answer input {
+  flex: 1 1 120px;
+  min-width: 0;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #9aaa93;
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 20px;
+}
+.harmony-answer input:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.harmony-answer button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.harmony-answer > p,
+.harmony-review-count {
+  color: #667468;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.harmony-hint {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #eeefe7;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.harmony-hint > strong {
+  color: var(--green);
+}
+.harmony-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.harmony-review .harmony-scale {
+  margin-top: 16px;
+}
 .harmony-trainer .trainer-question-heading {
   padding: 0;
 }

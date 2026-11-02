@@ -16,7 +16,7 @@ import {
   guitarStrings,
   initialTrainerState,
   midiAt,
-  nextQuestion,
+  nextPracticeQuestion,
   noteName,
   pitchAt,
   pitchName,
@@ -87,7 +87,7 @@ export default function Trainer() {
     dispatch({
       type: 'question',
       settings: config,
-      question: nextQuestion(config, currentQuestion?.id),
+      question: nextPracticeQuestion(state, config),
     })
   }
   function configure(update: Partial<TrainerSettings>) {
@@ -223,10 +223,16 @@ export default function Trainer() {
             status={status}
             wrongAnswers={wrongAnswers}
             completed={state.completed}
+            hintsUsed={state.hintsUsed}
+            reviewing={state.harmonyReviews.some(
+              ({ question }) => question.id === currentQuestion?.id,
+            )}
+            reviewCount={state.harmonyReviews.length}
             onConfigure={configure}
             onBegin={() => begin()}
             onAnswer={(answer) => dispatch({ type: 'answer', answer })}
             onReveal={() => dispatch({ type: 'reveal' })}
+            onHint={() => dispatch({ type: 'hint' })}
           />
         ) : (
           <>
@@ -507,7 +513,7 @@ export default function Trainer() {
             <strong data-testid="trainer-first-try">
               {state.firstTry}/{state.completed}
             </strong>{' '}
-            first try
+            first try · unaided
           </span>
           <span>
             <Flame size={15} />

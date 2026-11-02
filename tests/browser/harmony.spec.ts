@@ -59,6 +59,12 @@ async function startHarmony(page: Page) {
   await expect(
     page.getByRole('combobox', { name: 'Chord type', exact: true }),
   ).toHaveValue('triads')
+  await expect(
+    page.getByRole('combobox', { name: 'Recall', exact: true }),
+  ).toHaveValue('mixed')
+  await page
+    .getByRole('combobox', { name: 'Recall', exact: true })
+    .selectOption('name')
 }
 
 async function capture(page: Page, name: string) {
@@ -135,10 +141,8 @@ test('key chords teach scale stacking, play on demand, and retain scores across 
   await expect
     .poll(() => page.evaluate(() => window.harmonyAudioTrace.contexts[0].state))
     .toBe('closed')
-  await page
-    .getByRole('group', { name: 'Answer choices' })
-    .getByRole('button', { name: 'Dm', exact: true })
-    .tap()
+  await page.getByLabel('Chord name', { exact: true }).fill('Dm')
+  await page.getByRole('button', { name: 'Check answer', exact: true }).tap()
   await expect(page.getByTestId('trainer-first-try')).toHaveText('1/1')
   await expect(
     page.getByRole('region', { name: 'Harmony explanation' }),
@@ -167,12 +171,15 @@ test('key chords teach scale stacking, play on demand, and retain scores across 
       ),
     )
     .toEqual(['closed', 'closed'])
-  await expect(
-    page.getByRole('list', { name: 'F♯ major scale' }),
-  ).toContainText('E♯')
+  await expect(page.getByRole('list', { name: 'F♯ major scale' })).toHaveCount(
+    0,
+  )
   await expect(page.getByTestId('trainer-first-try')).toHaveText('1/1')
   await page.getByRole('button', { name: 'Show answer', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('G♯m')
+  await expect(
+    page.getByRole('list', { name: 'F♯ major scale' }),
+  ).toContainText('E♯')
   await expect(page.getByTestId('trainer-first-try')).toHaveText('1/2')
   await capture(page, 'harmony-key-answer-320.png')
   await page.getByRole('button', { name: 'Name a note', exact: true }).click()
@@ -234,6 +241,124 @@ test('functions compare the tonic and target, explain retries, and stop audio on
   ).toBeVisible()
 })
 
+test('recall hides the scale and choices, counts hints, and returns an unaided review after two questions', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await startHarmony(page)
+  await page.evaluate(() => {
+    Math.random = () => 0
+  })
+  await page.getByRole('button', { name: 'Start practice' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Which chord is I in C major?' }),
+  ).toBeVisible()
+  await expect(page.getByRole('list', { name: 'C major scale' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Answer choices' })).toHaveCount(
+    0,
+  )
+  await expect(
+    page.getByRole('list', { name: 'Chords in this key' }),
+  ).toHaveCount(0)
+  await expect(page.getByLabel('Chord name', { exact: true })).toHaveValue('')
+  await expect(
+    page.getByRole('button', { name: 'Check answer' }),
+  ).toBeDisabled()
+  await page.getByRole('button', { name: 'Give me a hint' }).click()
+  await expect(
+    page.getByRole('complementary', { name: 'Practice hint' }),
+  ).toContainText('assisted practice')
+  await expect(page.getByRole('list', { name: 'C major scale' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Show scale', exact: true }).click()
+  await expect(page.getByRole('list', { name: 'C major scale' })).toBeVisible()
+  await page.getByLabel('Chord name', { exact: true }).fill('C')
+  await page.getByLabel('Chord name', { exact: true }).press('Enter')
+  await expect(page.getByRole('status')).toContainText('With help')
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/1')
+  await expect(page.getByTestId('trainer-streak')).toHaveText('0')
+  await expect(page.locator('.harmony-review-count')).toContainText(
+    '1 recall check',
+  )
+  for (const answer of ['Dm', 'Em']) {
+    await page.getByRole('button', { name: 'Next question' }).click()
+    await expect(page.getByRole('list', { name: 'C major scale' })).toHaveCount(
+      0,
+    )
+    await expect(
+      page.getByRole('complementary', { name: 'Practice hint' }),
+    ).toHaveCount(0)
+    await expect(page.getByLabel('Chord name', { exact: true })).toHaveValue('')
+    await page.getByLabel('Chord name', { exact: true }).fill(answer)
+    await page.getByLabel('Chord name', { exact: true }).press('Enter')
+    await expect(page.getByRole('status')).toContainText(`Correct — ${answer}`)
+  }
+  await page.getByRole('button', { name: 'Next question' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Which chord is I in C major?' }),
+  ).toBeVisible()
+  await expect(page.locator('.exercise-description')).toContainText(
+    'Recall check',
+  )
+  await expect(page.getByRole('list', { name: 'C major scale' })).toHaveCount(0)
+  await capture(page, 'harmony-recall-check-320.png')
+  await page.getByLabel('Chord name', { exact: true }).fill('C major')
+  await page.getByLabel('Chord name', { exact: true }).press('Enter')
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('3/4')
+  await expect(page.locator('.harmony-review-count')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Reset session' }).click()
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/0')
+  await expect(
+    page.getByRole('button', { name: 'Start practice' }),
+  ).toBeVisible()
+})
+
+test('reverse recall distinguishes IV from vi and chord spelling requires every tone', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await startHarmony(page)
+  await page
+    .getByRole('combobox', { name: 'Recall', exact: true })
+    .selectOption('numeral')
+  await page.evaluate(() => {
+    Math.random = () => 0.8
+  })
+  await page.getByRole('button', { name: 'Start practice' }).click()
+  await expect(
+    page.getByRole('heading', {
+      name: 'Which Roman numeral is Am in C major?',
+    }),
+  ).toBeVisible()
+  await expect(page.locator('.harmony-target')).not.toContainText('vi')
+  await page.getByLabel('Roman numeral', { exact: true }).fill('iv')
+  await page.getByLabel('Roman numeral', { exact: true }).press('Enter')
+  await expect(page.getByRole('status')).toContainText(
+    'iv is minor four; vi is minor six',
+  )
+  await page.getByLabel('Roman numeral', { exact: true }).fill('vi')
+  await page.getByLabel('Roman numeral', { exact: true }).press('Enter')
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/1')
+  await page
+    .getByRole('combobox', { name: 'Recall', exact: true })
+    .selectOption('notes')
+  await expect(
+    page.getByRole('heading', { name: 'What notes make Am in C major?' }),
+  ).toBeVisible()
+  await expect(page.getByRole('list', { name: 'C major scale' })).toHaveCount(0)
+  await page.getByLabel('Chord notes', { exact: true }).fill('A C')
+  await page.getByLabel('Chord notes', { exact: true }).press('Enter')
+  await expect(page.getByRole('status')).toContainText('Check every chord tone')
+  await page.getByLabel('Chord notes', { exact: true }).fill('e, c, a')
+  await page.getByLabel('Chord notes', { exact: true }).press('Enter')
+  await expect(
+    page.getByRole('region', { name: 'Harmony explanation' }),
+  ).toContainText('C is a minor third (3 semitones)')
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/2')
+  await capture(page, 'harmony-spelling-review-320.png')
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await capture(page, 'harmony-spelling-review-desktop.png')
+})
+
 test('guided progressions keep the missing chord silent and explain the completed voice leading', async ({
   page,
 }) => {
@@ -278,10 +403,8 @@ test('guided progressions keep the missing chord silent and explain the complete
   await expect
     .poll(() => page.evaluate(() => window.harmonyAudioTrace.contexts[0].state))
     .toBe('closed')
-  await page
-    .getByRole('group', { name: 'Answer choices' })
-    .getByRole('button', { name: 'Cmaj7', exact: true })
-    .tap()
+  await page.getByLabel('Chord name', { exact: true }).fill('Cmaj7')
+  await page.getByRole('button', { name: 'Check answer', exact: true }).tap()
   await expect(progression).toContainText('Cmaj7')
   await expect(
     page.getByRole('region', { name: 'Harmony explanation' }),
@@ -337,6 +460,12 @@ test('guided progressions keep the missing chord silent and explain the complete
   await expect(
     page.getByRole('combobox', { name: 'Chord type', exact: true }),
   ).toHaveValue('triads')
+  await expect(
+    page.getByRole('combobox', { name: 'Recall', exact: true }),
+  ).toHaveValue('mixed')
+  await page
+    .getByRole('combobox', { name: 'Recall', exact: true })
+    .selectOption('name')
 })
 
 test('the audio renderer produces sound, silence for gaps, and no clipped samples', async ({
@@ -401,9 +530,7 @@ test('audio failure leaves the visual quiz usable', async ({ page }) => {
     .getByRole('button', { name: 'Play major scale', exact: true })
     .tap()
   await expect(page.getByRole('alert')).toContainText('Audio could not start')
-  await page
-    .getByRole('group', { name: 'Answer choices' })
-    .getByRole('button', { name: 'C', exact: true })
-    .tap()
+  await page.getByLabel('Chord name', { exact: true }).fill('C')
+  await page.getByRole('button', { name: 'Check answer', exact: true }).tap()
   await expect(page.getByTestId('trainer-first-try')).toHaveText('1/1')
 })

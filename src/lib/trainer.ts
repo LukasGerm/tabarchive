@@ -7,6 +7,9 @@ import {
 } from './intervals'
 import {
   defaultHarmonySettings,
+  harmonyConcept,
+  isHarmonyAnswer,
+  matchesHarmonySettings,
   nextHarmonyQuestion,
   type HarmonyQuestion,
   type HarmonySettings,
@@ -314,8 +317,8 @@ export function isCorrectAnswer(
   answer: string,
   settings: TrainerSettings,
 ) {
-  if (question.mode === 'harmony' || question.mode === 'intervals')
-    return answer === question.answer
+  if (question.mode === 'harmony') return isHarmonyAnswer(question, answer)
+  if (question.mode === 'intervals') return answer === question.answer
   if (question.mode === 'chords') return answer === question.shape.name
   if (question.mode === 'roles') return answer === question.role
   if (question.mode === 'roots')
@@ -346,6 +349,8 @@ export type TrainerState = {
   completed: number
   firstTry: number
   streak: number
+  hintsUsed: number
+  harmonyReviews: { question: HarmonyQuestion; due: number }[]
 }
 export const initialTrainerState: TrainerState = {
   settings: defaultTrainerSettings,
@@ -356,13 +361,51 @@ export const initialTrainerState: TrainerState = {
   completed: 0,
   firstTry: 0,
   streak: 0,
+  hintsUsed: 0,
+  harmonyReviews: [],
 }
 export type TrainerAction =
   | { type: 'question'; question: TrainerQuestion; settings: TrainerSettings }
   | { type: 'answer'; answer: string }
   | { type: 'reveal' }
+  | { type: 'hint' }
   | { type: 'settings'; settings: TrainerSettings }
   | { type: 'reset' }
+
+export function nextPracticeQuestion(
+  state: TrainerState,
+  settings = state.settings,
+  random = Math.random,
+): TrainerQuestion {
+  if (settings.mode !== 'harmony')
+    return nextQuestion(settings, state.question?.id, random)
+  const reviews = state.harmonyReviews.filter(({ question }) =>
+    matchesHarmonySettings(question, settings),
+  )
+  const due = reviews.find(
+    ({ question, due }) =>
+      due <= state.completed && question.id !== state.question?.id,
+  )
+  return (
+    due?.question ??
+    nextHarmonyQuestion(
+      settings,
+      state.question?.id,
+      random,
+      reviews.map(({ question }) => harmonyConcept(question)),
+    )
+  )
+}
+
+function updateHarmonyReviews(state: TrainerState, recalled: boolean) {
+  const question = state.question
+  if (question?.mode !== 'harmony') return state.harmonyReviews
+  const others = state.harmonyReviews.filter(
+    (review) => review.question.id !== question.id,
+  )
+  // Return after two intervening answers; only unaided recall clears a review.
+  return recalled ? others : [...others, { question, due: state.completed + 3 }]
+}
 
 export function trainerReducer(
   state: TrainerState,
@@ -378,6 +421,7 @@ export function trainerReducer(
       status: 'waiting',
       wrongAnswers: [],
       foundRoots: [],
+      hintsUsed: 0,
     }
   if (action.type === 'question')
     return {
@@ -387,14 +431,20 @@ export function trainerReducer(
       status: 'waiting',
       wrongAnswers: [],
       foundRoots: [],
+      hintsUsed: 0,
     }
   if (!state.question || state.status !== 'waiting') return state
+  if (action.type === 'hint')
+    return state.question.mode === 'harmony' && state.hintsUsed < 2
+      ? { ...state, hintsUsed: state.hintsUsed + 1, streak: 0 }
+      : state
   if (action.type === 'reveal')
     return {
       ...state,
       status: 'revealed',
       completed: state.completed + 1,
       streak: 0,
+      harmonyReviews: updateHarmonyReviews(state, false),
     }
   if (state.wrongAnswers.includes(action.answer)) return state
   if (state.foundRoots.includes(action.answer)) return state
@@ -411,7 +461,7 @@ export function trainerReducer(
     foundRoots.length < state.question.roots.length
   )
     return { ...state, foundRoots }
-  const firstTry = state.wrongAnswers.length === 0
+  const firstTry = state.wrongAnswers.length === 0 && state.hintsUsed === 0
   return {
     ...state,
     status: 'correct',
@@ -419,5 +469,6 @@ export function trainerReducer(
     completed: state.completed + 1,
     firstTry: state.firstTry + Number(firstTry),
     streak: firstTry ? state.streak + 1 : 0,
+    harmonyReviews: updateHarmonyReviews(state, firstTry),
   }
 }

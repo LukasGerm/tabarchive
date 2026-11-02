@@ -6,6 +6,8 @@ import {
   harmonyExplanation,
   harmonyPrompt,
   harmonySounds,
+  harmonyHint,
+  isHarmonyAnswer,
   majorKeys,
   majorScale,
   nextHarmonyQuestion,
@@ -19,7 +21,9 @@ import {
   defaultTrainerSettings,
   initialTrainerState,
   nextQuestion,
+  nextPracticeQuestion,
   trainerReducer,
+  type TrainerState,
 } from '../src/lib/trainer'
 import { midiFrequency } from '../src/lib/harmony-audio'
 
@@ -118,6 +122,7 @@ describe('major-key harmony', () => {
           'progressions',
         ] as const) {
           const settings: HarmonySettings = {
+            ...defaultHarmonySettings,
             harmonyKey: key.name,
             harmonyChords,
             harmonyExercise,
@@ -130,17 +135,18 @@ describe('major-key harmony', () => {
             expect(question.size).toBe(harmonyChords)
             expect(question.exercise).toBe(harmonyExercise)
             expect(question.choices).toHaveLength(
-              harmonyExercise === 'functions' ? 3 : 4,
+              harmonyExercise === 'functions' ? 3 : 0,
             )
             expect(
               new Set(question.choices.map((choice) => choice.value)).size,
             ).toBe(question.choices.length)
-            expect(
-              question.choices.filter(
-                (choice) => choice.value === question.answer,
-              ),
-            ).toHaveLength(1)
+            expect(isHarmonyAnswer(question, question.answer)).toBe(true)
             if (question.exercise === 'functions') {
+              expect(
+                question.choices.filter(
+                  (choice) => choice.value === question.answer,
+                ),
+              ).toHaveLength(1)
               expect(
                 functionDegrees.find(
                   (item) => item.degree === question.target.degree,
@@ -155,10 +161,18 @@ describe('major-key harmony', () => {
               expect(harmonyPrompt(question)).toContain(
                 question.progression.map((chord) => chord.roman).join('–'),
               )
-            } else
+            } else {
+              const chord = chordsInKey(key, harmonyChords)[
+                question.target.degree
+              ]
               expect(question.answer).toBe(
-                chordsInKey(key, harmonyChords)[question.target.degree].name,
+                question.recall === 'name'
+                  ? chord.name
+                  : question.recall === 'numeral'
+                    ? chord.roman
+                    : chord.notes.join(' '),
               )
+            }
             previous = question.id
           }
         }
@@ -186,9 +200,7 @@ describe('major-key harmony', () => {
     state = trainerReducer(state, { type: 'question', settings, question })
     state = trainerReducer(state, {
       type: 'answer',
-      answer: question.choices.find(
-        (choice) => choice.value !== question.answer,
-      )!.value,
+      answer: 'wrong',
     })
     state = trainerReducer(state, { type: 'reveal' })
     expect(state).toMatchObject({
@@ -206,6 +218,215 @@ describe('major-key harmony', () => {
       wrongAnswers: [],
       completed: 2,
       firstTry: 1,
+    })
+  })
+})
+
+describe('harmony recall', () => {
+  function question(
+    recall: HarmonySettings['harmonyRecall'],
+    degree = 5,
+    harmonyChords: HarmonySettings['harmonyChords'] = 'triads',
+  ) {
+    return nextHarmonyQuestion(
+      { ...defaultHarmonySettings, harmonyRecall: recall, harmonyChords },
+      undefined,
+      () => (degree + 0.5) / 7,
+    )
+  }
+
+  it('asks all three directions without choices or giving the reverse answer in the prompt', () => {
+    expect(harmonyPrompt(question('name'))).toBe(
+      'Which chord is vi in C major?',
+    )
+    expect(harmonyPrompt(question('numeral'))).toBe(
+      'Which Roman numeral is Am in C major?',
+    )
+    expect(harmonyPrompt(question('notes'))).toBe(
+      'What notes make Am in C major?',
+    )
+    const recalls = new Set(
+      Array.from({ length: 21 }, (_, index) => {
+        const item = nextHarmonyQuestion(
+          defaultHarmonySettings,
+          undefined,
+          () => (index + 0.5) / 21,
+        )
+        expect(item.choices).toEqual([])
+        return item.exercise === 'key-chords' && item.recall
+      }),
+    )
+    expect(recalls).toEqual(new Set(['name', 'numeral', 'notes']))
+  })
+
+  it('accepts common chord notation while preserving quality and scale spelling', () => {
+    for (const value of ['Am', 'a minor', 'Amin', ' Am '])
+      expect(isHarmonyAnswer(question('name'), value)).toBe(true)
+    for (const value of ['A', 'AM', 'Am7', '', 'garbage', 'Am extra'])
+      expect(isHarmonyAnswer(question('name'), value)).toBe(false)
+    for (const value of ['CM7', 'Cmaj7', 'C major7', 'CΔ7'])
+      expect(isHarmonyAnswer(question('name', 0, 'sevenths'), value)).toBe(true)
+    expect(isHarmonyAnswer(question('name', 0, 'sevenths'), 'Cm7')).toBe(false)
+    for (const value of ['Bm7b5', 'Bm7♭5', 'Bø7'])
+      expect(isHarmonyAnswer(question('name', 6, 'sevenths'), value)).toBe(true)
+    for (const key of majorKeys) {
+      const item = nextHarmonyQuestion(
+        {
+          ...defaultHarmonySettings,
+          harmonyKey: key.name,
+          harmonyRecall: 'name',
+        },
+        undefined,
+        () => 0.2,
+      )
+      expect(
+        isHarmonyAnswer(
+          item,
+          item.answer.replaceAll('♯', '#').replaceAll('♭', 'b'),
+        ),
+      ).toBe(true)
+    }
+  })
+
+  it('requires numeral case and distinguishes four from six', () => {
+    expect(isHarmonyAnswer(question('numeral'), 'vi')).toBe(true)
+    for (const value of ['VI', 'iv', 'IV', '6'])
+      expect(isHarmonyAnswer(question('numeral'), value)).toBe(false)
+    expect(isHarmonyAnswer(question('numeral', 3), 'IV')).toBe(true)
+    expect(isHarmonyAnswer(question('numeral', 3), 'iv')).toBe(false)
+    expect(isHarmonyAnswer(question('numeral', 6), 'viio')).toBe(true)
+    expect(isHarmonyAnswer(question('numeral', 6, 'sevenths'), 'vii/o7')).toBe(
+      true,
+    )
+    expect(harmonyExplanation(question('name'))).toContain(
+      'IV means four and vi means six',
+    )
+  })
+
+  it('checks every distinct chord tone, accepts any order, and teaches correct spelling', () => {
+    for (const value of ['A C E', 'e, a, c', 'A · C · E', 'A-C-E'])
+      expect(isHarmonyAnswer(question('notes'), value)).toBe(true)
+    for (const value of [
+      'A C',
+      'A C E E',
+      'A A E',
+      'A C F',
+      'A C E G',
+      'Am',
+      '',
+    ])
+      expect(isHarmonyAnswer(question('notes'), value)).toBe(false)
+    const item = nextHarmonyQuestion(
+      {
+        ...defaultHarmonySettings,
+        harmonyKey: 'F♯',
+        harmonyRecall: 'notes',
+        harmonyChords: 'sevenths',
+      },
+      undefined,
+      () => 0,
+    )
+    expect(isHarmonyAnswer(item, 'F# A# C# E#')).toBe(true)
+    expect(isHarmonyAnswer(item, 'F# A# C# F')).toBe(false)
+    expect(harmonyHint(item)).toContain('4, 7, 11 semitones')
+    expect(harmonyExplanation(item)).toContain(
+      'E♯ is a major seventh (11 semitones)',
+    )
+    expect(harmonyExplanation(question('notes'))).toContain(
+      'C is a minor third (3 semitones)',
+    )
+  })
+
+  it('revisits missed, revealed, and hinted answers after two others, clearing only unaided recall', () => {
+    const settings = {
+      ...defaultTrainerSettings,
+      mode: 'harmony' as const,
+      harmonyRecall: 'name' as const,
+    }
+    const start = (state: TrainerState) =>
+      trainerReducer(state, {
+        type: 'question',
+        settings,
+        question: nextPracticeQuestion(state, settings, () => 0),
+      })
+    const solve = (state: TrainerState) =>
+      trainerReducer(state, {
+        type: 'answer',
+        answer: (state.question as HarmonyQuestion).answer,
+      })
+    for (const assistance of ['wrong', 'hint', 'reveal'] as const) {
+      let state = start(initialTrainerState)
+      const original = state.question!
+      state = trainerReducer(
+        state,
+        assistance === 'wrong'
+          ? { type: 'answer', answer: 'wrong' }
+          : { type: assistance },
+      )
+      state = solve(state)
+      expect(state).toMatchObject({ completed: 1, firstTry: 0, streak: 0 })
+      expect(state.harmonyReviews).toHaveLength(1)
+      for (let index = 0; index < 2; index++) {
+        state = start(state)
+        expect(state.question?.id).not.toBe(original.id)
+        expect(state.hintsUsed).toBe(0)
+        expect(state.wrongAnswers).toEqual([])
+        state = solve(state)
+      }
+      state = start(state)
+      expect(state.question).toEqual(original)
+      state = solve(state)
+      expect(state.harmonyReviews).toEqual([])
+      expect(state).toMatchObject({ completed: 4, firstTry: 3, streak: 3 })
+    }
+  })
+
+  it('keeps assisted reviews queued, respects settings, and clears all progress on reset', () => {
+    const settings = {
+      ...defaultTrainerSettings,
+      mode: 'harmony' as const,
+      harmonyRecall: 'name' as const,
+    }
+    let state = trainerReducer(initialTrainerState, {
+      type: 'question',
+      settings,
+      question: question('name'),
+    })
+    state = trainerReducer(state, { type: 'hint' })
+    state = trainerReducer(state, { type: 'hint' })
+    expect(trainerReducer(state, { type: 'hint' })).toBe(state)
+    state = trainerReducer(state, { type: 'answer', answer: 'Am' })
+    expect(trainerReducer(state, { type: 'hint' })).toBe(state)
+    state = { ...state, completed: 3, question: null }
+    expect(
+      (
+        nextPracticeQuestion(state, {
+          ...settings,
+          harmonyKey: 'G',
+        }) as HarmonyQuestion
+      ).key.name,
+    ).toBe('G')
+    const reverse = nextPracticeQuestion(state, {
+      ...settings,
+      harmonyRecall: 'numeral',
+    })
+    expect(
+      reverse.mode === 'harmony' &&
+        reverse.exercise === 'key-chords' &&
+        reverse.recall,
+    ).toBe('numeral')
+    state = trainerReducer(state, {
+      type: 'question',
+      settings,
+      question: nextPracticeQuestion(state),
+    })
+    state = trainerReducer(state, { type: 'hint' })
+    state = trainerReducer(state, { type: 'answer', answer: 'Am' })
+    expect(state.harmonyReviews).toHaveLength(1)
+    expect(state.harmonyReviews[0].due).toBe(6)
+    expect(trainerReducer(state, { type: 'reset' })).toEqual({
+      ...initialTrainerState,
+      settings,
     })
   })
 })

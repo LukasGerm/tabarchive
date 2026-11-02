@@ -15,15 +15,18 @@ export const majorKeys = [
 export type MajorKey = (typeof majorKeys)[number]
 export type HarmonyExercise = 'key-chords' | 'functions' | 'progressions'
 export type ChordSize = 'triads' | 'sevenths'
+export type HarmonyRecall = 'name' | 'numeral' | 'notes'
 export type HarmonySettings = {
   harmonyExercise: HarmonyExercise
   harmonyKey: MajorKey['name']
   harmonyChords: ChordSize
+  harmonyRecall: HarmonyRecall | 'mixed'
 }
 export const defaultHarmonySettings: HarmonySettings = {
   harmonyExercise: 'key-chords',
   harmonyKey: 'C',
   harmonyChords: 'triads',
+  harmonyRecall: 'mixed',
 }
 
 export const harmonyExercises: {
@@ -35,7 +38,7 @@ export const harmonyExercises: {
     value: 'key-chords',
     label: 'Chords in a key',
     description:
-      'Build chords from the scale. Learn how a Roman numeral becomes a chord name.',
+      'Recall chord names, Roman numerals, and chord tones without a scale to copy.',
   },
   {
     value: 'functions',
@@ -183,7 +186,7 @@ type HarmonyQuestionBase = {
 }
 export type HarmonyQuestion = HarmonyQuestionBase &
   (
-    | { exercise: 'key-chords' }
+    | { exercise: 'key-chords'; recall: HarmonyRecall }
     | { exercise: 'functions'; function: HarmonicFunction }
     | {
         exercise: 'progressions'
@@ -206,6 +209,7 @@ export function nextHarmonyQuestion(
   settings: HarmonySettings,
   previous?: string,
   random = Math.random,
+  excludedConcepts: string[] = [],
 ): HarmonyQuestion {
   const key = majorKeys.find((key) => key.name === settings.harmonyKey)!
   const size = settings.harmonyChords
@@ -236,15 +240,31 @@ export function nextHarmonyQuestion(
       })),
     )
   } else {
-    candidates = chords.map((target) => ({
-      ...base,
-      exercise: 'key-chords',
-      id: `${prefix}:${target.degree}`,
-      target,
-      answer: target.name,
-    }))
+    const recalls: HarmonyRecall[] =
+      settings.harmonyRecall === 'mixed'
+        ? ['name', 'numeral', 'notes']
+        : [settings.harmonyRecall]
+    candidates = chords.flatMap((target) =>
+      recalls.map((recall) => ({
+        ...base,
+        exercise: 'key-chords' as const,
+        recall,
+        id: `${prefix}:${target.degree}:${recall}`,
+        target,
+        answer:
+          recall === 'numeral'
+            ? target.roman
+            : recall === 'notes'
+              ? target.notes.join(' ')
+              : target.name,
+      })),
+    )
   }
-  const pool = candidates.filter((question) => question.id !== previous)
+  const different = candidates.filter((question) => question.id !== previous)
+  const fresh = different.filter(
+    (question) => !excludedConcepts.includes(harmonyConcept(question)),
+  )
+  const pool = fresh.length ? fresh : different
   const question = pool[Math.floor(random() * pool.length)]
   const choices =
     question.exercise === 'functions'
@@ -252,19 +272,18 @@ export function nextHarmonyQuestion(
           value,
           label: item.label,
         }))
-      : [
-          question.target,
-          ...shuffle(
-            chords.filter((chord) => chord.name !== question.target.name),
-            random,
-          ).slice(0, 3),
-        ].map((chord) => ({ value: chord.name, label: chord.name }))
+      : []
   return { ...question, choices: shuffle(choices, random) }
 }
 
 export function harmonyPrompt(question: HarmonyQuestion): string {
-  if (question.exercise === 'key-chords')
+  if (question.exercise === 'key-chords') {
+    if (question.recall === 'numeral')
+      return `Which Roman numeral is ${question.target.name} in ${question.key.name} major?`
+    if (question.recall === 'notes')
+      return `What notes make ${question.target.name} in ${question.key.name} major?`
     return `Which chord is ${question.target.roman} in ${question.key.name} major?`
+  }
   if (question.exercise === 'functions')
     return `What is ${question.target.name}’s function in ${question.key.name} major?`
   return `Complete the ${question.progression.map((chord) => chord.roman).join('–')} pattern.`
@@ -277,7 +296,140 @@ export function harmonyExplanation(question: HarmonyQuestion): string {
     return `${chord.name} (${chord.roman}) has ${question.function} function here. ${harmonicFunctions[question.function].description} Its notes are ${chord.notes.join(' · ')}.`
   if (question.exercise === 'progressions')
     return `${stack} ${question.pattern.detail}`
-  return `${stack} ${question.size === 'triads' ? 'Three notes make a triad; their spacing determines major, minor, or diminished quality.' : 'The fourth stacked note is the seventh. In a major key, V7 has a minor seventh, while Imaj7 has a major seventh.'}`
+  const third =
+    chord.intervals[1] === 3
+      ? 'minor third (3 semitones)'
+      : 'major third (4 semitones)'
+  const fifth =
+    chord.intervals[2] === 6
+      ? 'diminished fifth (6 semitones)'
+      : 'perfect fifth (7 semitones)'
+  const seventh =
+    question.size === 'sevenths'
+      ? `, and ${chord.notes[3]} is a ${chord.intervals[3] === 10 ? 'minor seventh (10 semitones)' : 'major seventh (11 semitones)'}`
+      : ''
+  return `${stack} Measured from ${chord.notes[0]}, ${chord.notes[1]} is a ${third}, ${chord.notes[2]} is a ${fifth}${seventh}. ${chord.degree === 3 || chord.degree === 5 ? 'IV means four and vi means six. Lowercase iv would be a minor chord on degree four, borrowed from outside this major scale.' : 'The numeral gives the root’s scale degree; its case and symbols describe the chord quality.'}`
+}
+
+export function harmonyConcept(question: HarmonyQuestion): string {
+  return question.exercise === 'key-chords'
+    ? `${question.key.name}:${question.size}:${question.target.degree}`
+    : question.id
+}
+
+export function matchesHarmonySettings(
+  question: HarmonyQuestion,
+  settings: HarmonySettings,
+): boolean {
+  return (
+    question.key.name === settings.harmonyKey &&
+    question.size === settings.harmonyChords &&
+    question.exercise === settings.harmonyExercise &&
+    (question.exercise !== 'key-chords' ||
+      settings.harmonyRecall === 'mixed' ||
+      question.recall === settings.harmonyRecall)
+  )
+}
+
+function normalizeAccidentals(value: string): string {
+  return value.trim().replaceAll('♯', '#').replaceAll('♭', 'b')
+}
+
+function normalizeNote(value: string): string | null {
+  const match = normalizeAccidentals(value).match(/^([a-g])([#b]{0,2})$/i)
+  return match ? match[1].toUpperCase() + match[2].toLowerCase() : null
+}
+
+function normalizeChord(value: string): string | null {
+  const match = normalizeAccidentals(value)
+    .replace(/\s+/g, '')
+    .match(/^([a-g])([#b]{0,2})(.*)$/i)
+  if (!match) return null
+  const aliases: Record<string, string> = {
+    '': '',
+    maj: '',
+    major: '',
+    M: '',
+    m: 'm',
+    min: 'm',
+    minor: 'm',
+    '7': '7',
+    dom7: '7',
+    dominant7: '7',
+    maj7: 'maj7',
+    major7: 'maj7',
+    M7: 'maj7',
+    Δ7: 'maj7',
+    m7: 'm7',
+    min7: 'm7',
+    minor7: 'm7',
+    dim: 'dim',
+    diminished: 'dim',
+    '°': 'dim',
+    o: 'dim',
+    m7b5: 'm7b5',
+    ø: 'm7b5',
+    ø7: 'm7b5',
+  }
+  const quality = aliases[match[3]]
+  return quality === undefined
+    ? null
+    : match[1].toUpperCase() + match[2].toLowerCase() + quality
+}
+
+export function isHarmonyAnswer(
+  question: HarmonyQuestion,
+  answer: string,
+): boolean {
+  if (question.exercise === 'functions') return answer === question.answer
+  if (question.exercise === 'key-chords' && question.recall === 'numeral') {
+    const normalize = (value: string) =>
+      value
+        .trim()
+        .replace(/\s+/g, '')
+        .replaceAll('/o', 'ø')
+        .replaceAll('o', '°')
+        .replaceAll('º', '°')
+        .replaceAll('Ø', 'ø')
+        .replace(/(?:M|Δ)7$/, 'maj7')
+    // Case carries chord quality: IV and iv are not interchangeable.
+    return normalize(answer) === normalize(question.answer)
+  }
+  if (question.exercise === 'key-chords' && question.recall === 'notes') {
+    const notes = answer
+      .trim()
+      .split(/[\s,;·–—/\-]+/)
+      .map(normalizeNote)
+    const expected = question.target.notes.map(normalizeNote)
+    return (
+      notes.length === expected.length &&
+      new Set(notes).size === expected.length &&
+      notes.every((note) => note !== null && expected.includes(note))
+    )
+  }
+  const normalized = normalizeChord(answer)
+  return normalized !== null && normalized === normalizeChord(question.answer)
+}
+
+export function harmonyHint(question: HarmonyQuestion): string {
+  if (question.exercise === 'functions')
+    return 'Tonic feels like home; predominant prepares a departure; dominant pulls back toward home. Compare the chord’s root with the tonic.'
+  if (question.exercise === 'key-chords' && question.recall === 'notes') {
+    const intervals = question.target.intervals.slice(1).join(', ')
+    return `Start with the root. The other tones are ${intervals} semitones above it. Spell successive chord tones with every other letter name.`
+  }
+  if (question.exercise === 'key-chords' && question.recall === 'numeral')
+    return 'Find the chord root’s position relative to the tonic. I, IV, and V are major; ii, iii, and vi are minor; vii° is diminished. IV is four; vi is six.'
+  const distances = [
+    'the tonic itself',
+    'a whole step above',
+    'a major third above',
+    'a perfect fourth above',
+    'a perfect fifth above',
+    'a minor third below',
+    'a half step below',
+  ]
+  return `The root is ${distances[question.target.degree]}${question.target.degree === 0 ? '' : ' the tonic'}. Read the numeral’s case and symbols for the quality. IV is four; vi is six.`
 }
 
 // Choose compact upper voices with minimal movement. Bass roots are separate.
