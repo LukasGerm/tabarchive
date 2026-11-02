@@ -1,5 +1,11 @@
 import { chordShapes, type ChordShape } from './chord-shapes'
 import {
+  defaultIntervalSettings,
+  nextIntervalQuestion,
+  type IntervalQuestion,
+  type IntervalSettings,
+} from './intervals'
+import {
   defaultHarmonySettings,
   nextHarmonyQuestion,
   type HarmonyQuestion,
@@ -44,20 +50,22 @@ export const noteName = (
 ) => `${pitchName(midi, spelling)}${octaves ? Math.floor(midi / 12) - 1 : ''}`
 
 export type TrainerMode =
-  'find' | 'name' | 'chords' | 'roots' | 'roles' | 'harmony'
-export type TrainerSettings = HarmonySettings & {
-  mode: TrainerMode
-  minFret: 0 | 5 | 12
-  maxFret: 5 | 12 | 24
-  string: 'all' | number
-  notes: 'natural' | 'all'
-  spelling: Spelling
-  octaves: boolean
-  chords: ChordShape['family'] | 'all'
-  toneVocabulary: 'foundation' | 'all'
-}
+  'find' | 'name' | 'chords' | 'roots' | 'roles' | 'harmony' | 'intervals'
+export type TrainerSettings = HarmonySettings &
+  IntervalSettings & {
+    mode: TrainerMode
+    minFret: 0 | 5 | 12
+    maxFret: 5 | 12 | 24
+    string: 'all' | number
+    notes: 'natural' | 'all'
+    spelling: Spelling
+    octaves: boolean
+    chords: ChordShape['family'] | 'all'
+    toneVocabulary: 'foundation' | 'all'
+  }
 export const defaultTrainerSettings: TrainerSettings = {
   ...defaultHarmonySettings,
+  ...defaultIntervalSettings,
   mode: 'name',
   minFret: 0,
   maxFret: 12,
@@ -97,7 +105,12 @@ export type RoleQuestion = {
   choices: Choice[]
 }
 export type TrainerQuestion =
-  NoteQuestion | ChordQuestion | RootQuestion | RoleQuestion | HarmonyQuestion
+  | NoteQuestion
+  | ChordQuestion
+  | RootQuestion
+  | RoleQuestion
+  | HarmonyQuestion
+  | IntervalQuestion
 
 export function chordPositions(shape: ChordShape): Position[] {
   return shape.frets.flatMap((fret, string) =>
@@ -161,6 +174,8 @@ export function nextQuestion(
   previous?: string,
   random = Math.random,
 ): TrainerQuestion {
+  if (settings.mode === 'intervals')
+    return nextIntervalQuestion(settings, previous, random)
   if (settings.mode === 'harmony')
     return nextHarmonyQuestion(settings, previous, random)
   if (settings.mode === 'roots' || settings.mode === 'roles') {
@@ -299,7 +314,8 @@ export function isCorrectAnswer(
   answer: string,
   settings: TrainerSettings,
 ) {
-  if (question.mode === 'harmony') return answer === question.answer
+  if (question.mode === 'harmony' || question.mode === 'intervals')
+    return answer === question.answer
   if (question.mode === 'chords') return answer === question.shape.name
   if (question.mode === 'roles') return answer === question.role
   if (question.mode === 'roots')

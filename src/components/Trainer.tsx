@@ -34,12 +34,14 @@ import {
 } from '../lib/chord-tones'
 import { ChordToneReview } from './ChordToneReview'
 import { HarmonyTrainer } from './HarmonyTrainer'
+import { IntervalTrainer } from './IntervalTrainer'
 
 const modes: { value: TrainerMode; label: string }[] = [
   { value: 'name', label: 'Name a note' },
   { value: 'find', label: 'Find a note' },
   { value: 'chords', label: 'Chord shapes' },
   { value: 'roots', label: 'Chord tones' },
+  { value: 'intervals', label: 'Intervals' },
   { value: 'harmony', label: 'Harmony' },
 ]
 const ranges = [
@@ -57,7 +59,12 @@ export default function Trainer() {
   const prompt = useRef<HTMLHeadingElement>(null)
   const focusNext = useRef(false)
   const { settings, question: currentQuestion, status, wrongAnswers } = state
-  const question = currentQuestion?.mode === 'harmony' ? null : currentQuestion
+  const question =
+    currentQuestion?.mode === 'harmony' || currentQuestion?.mode === 'intervals'
+      ? null
+      : currentQuestion
+  const theoryMode =
+    settings.mode === 'harmony' || settings.mode === 'intervals'
   const resolved = status !== 'waiting'
   const toneMode = settings.mode === 'roots' || settings.mode === 'roles'
   const chordMode = toneMode || settings.mode === 'chords'
@@ -193,7 +200,21 @@ export default function Trainer() {
             </button>
           ))}
         </div>
-        {settings.mode === 'harmony' ? (
+        {settings.mode === 'intervals' ? (
+          <IntervalTrainer
+            question={
+              currentQuestion?.mode === 'intervals' ? currentQuestion : null
+            }
+            settings={settings}
+            status={status}
+            wrongAnswers={wrongAnswers}
+            completed={state.completed}
+            onConfigure={configure}
+            onBegin={() => begin()}
+            onAnswer={(answer) => dispatch({ type: 'answer', answer })}
+            onReveal={() => dispatch({ type: 'reveal' })}
+          />
+        ) : settings.mode === 'harmony' ? (
           <HarmonyTrainer
             question={
               currentQuestion?.mode === 'harmony' ? currentQuestion : null
@@ -522,11 +543,13 @@ export default function Trainer() {
           </button>
         </div>
         <p>
-          {settings.mode === 'harmony'
-            ? 'Major-key harmony · listen, answer, and explore the notes.'
+          {theoryMode
+            ? settings.mode === 'intervals'
+              ? 'Intervals · learn the distance between two pitches.'
+              : 'Major-key harmony · listen, answer, and explore the notes.'
             : 'Standard tuning · E A D G B E'}
         </p>
-        {!chordMode && settings.mode !== 'harmony' && (
+        {!chordMode && !theoryMode && (
           <div className="trainer-settings-fields">
             <label>
               Focus string
@@ -618,8 +641,10 @@ export default function Trainer() {
           </div>
         )}
         <p className="trainer-settings-hint">
-          {settings.mode === 'harmony'
-            ? 'Choose the exercise, major key, and chord type above the question. Playback starts only when you press Play.'
+          {theoryMode
+            ? settings.mode === 'intervals'
+              ? 'Choose Read notes or By ear, playback direction, and interval vocabulary above the question. Playback starts only when you press Play.'
+              : 'Choose the exercise, major key, and chord type above the question. Playback starts only when you press Play.'
             : 'Choose frets and chord collections above the board.'}{' '}
           Changing a setting starts a fresh question; your session totals stay.
         </p>
@@ -629,7 +654,7 @@ export default function Trainer() {
             compact fingerings with no open strings. All mixes both collections.
           </p>
         )}
-        {settings.mode !== 'harmony' && (
+        {!theoryMode && (
           <details>
             <summary>How to read the fretboard</summary>
             <p>

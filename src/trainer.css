@@ -66,7 +66,7 @@
 }
 .trainer-modes {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   background: #eeefe7;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -912,6 +912,96 @@
 .harmony-voice-leading li strong {
   font-size: 14px;
 }
+.interval-trainer {
+  gap: 14px;
+}
+.interval-trainer .trainer-question-heading {
+  padding: 0;
+}
+.interval-notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  position: relative;
+}
+.interval-note {
+  min-width: 0;
+  padding: 24px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  text-align: center;
+}
+.interval-note > span {
+  color: #667468;
+  font-size: 12px;
+}
+.interval-note > strong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 65px;
+  font-family: var(--serif);
+  font-size: clamp(32px, 6vw, 52px);
+  font-weight: 500;
+  color: var(--green);
+}
+.interval-note.playing-note {
+  background: #e8eddf;
+  border-color: #9aaa93;
+}
+.interval-connector {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #667468;
+}
+.interval-choices.trainer-choices {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(48px, auto);
+  padding: 0;
+}
+.interval-choices.trainer-choices button {
+  font-size: 14px;
+  padding: 10px;
+}
+.interval-choices button > span {
+  min-width: 0;
+}
+.interval-choices button > svg {
+  flex-shrink: 0;
+}
+.interval-trainer .trainer-response {
+  padding: 0 0 8px;
+}
+.interval-review .interval-distance {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 3px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.interval-distance li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  background: #eeefe7;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #667468;
+}
+.interval-distance .interval-traversed {
+  background: #dce5d4;
+  color: var(--green);
+}
+.interval-distance .interval-destination {
+  background: var(--green);
+  color: var(--paper);
+  font-weight: 650;
+}
 @media (max-width: 1150px) {
   .trainer-page {
     padding-left: 32px;
@@ -922,6 +1012,12 @@
   }
 }
 @media (max-width: 600px) {
+  .trainer-modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .interval-choices.trainer-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .harmony-settings label {
     flex-direction: column;
     align-items: stretch;
