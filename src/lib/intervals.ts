@@ -16,7 +16,7 @@ export const intervals = [
   { semitones: 12, steps: 7, label: 'Perfect octave', short: 'P8' },
 ] as const
 export type Interval = (typeof intervals)[number]
-export const foundationIntervals = [3, 4, 5, 7, 12]
+export const foundationIntervals = [3, 4, 5, 7, 10, 11, 12]
 export type IntervalSettings = {
   intervalExercise: 'notes' | 'ear'
   intervalDirection: 'ascending' | 'descending' | 'harmonic'

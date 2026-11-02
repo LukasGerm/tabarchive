@@ -181,7 +181,7 @@ export function IntervalTrainer({
           <h3>Two notes. One interval.</h3>
           <p>
             An interval is the distance between two pitches. Start with minor
-            and major thirds, perfect fourths, fifths, and octaves.
+            and major thirds and sevenths, perfect fourths, fifths, and octaves.
             Unison–octave adds every distance within an octave.
           </p>
           <p>
