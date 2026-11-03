@@ -14,7 +14,9 @@ export const Route = createFileRoute('/api/tabs/$id')({
       PATCH: ({ request, params }) =>
         respond(async () => {
           requireOwner(request)
-          return json(await updateTab(params.id, await readJson(request)))
+          return json(
+            await updateTab(params.id, await readJson(request, 100000)),
+          )
         }),
       DELETE: ({ request, params }) =>
         respond(async () => {

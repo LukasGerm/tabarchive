@@ -459,10 +459,20 @@ test('guided progressions keep the missing chord silent and explain the complete
   await page.getByRole('button', { name: 'Harmony', exact: true }).click()
   await expect(
     page.getByRole('combobox', { name: 'Chord type', exact: true }),
-  ).toHaveValue('triads')
+  ).toHaveValue('sevenths')
+  await expect(
+    page.getByRole('combobox', { name: 'Major key', exact: true }),
+  ).toHaveValue('F♯')
+  await expect(
+    page.getByRole('button', { name: 'Complete a progression', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('trainer-completed')).toHaveText('0')
+  await page
+    .getByRole('button', { name: 'Chords in a key', exact: true })
+    .click()
   await expect(
     page.getByRole('combobox', { name: 'Recall', exact: true }),
-  ).toHaveValue('mixed')
+  ).toHaveValue('name')
   await page
     .getByRole('combobox', { name: 'Recall', exact: true })
     .selectOption('name')

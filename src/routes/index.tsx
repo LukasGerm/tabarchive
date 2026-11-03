@@ -576,8 +576,9 @@ function Archive() {
           </footer>
         </main>
       )}
-      {importing && (
+      {authenticated && (
         <ImportDialog
+          open={importing}
           onClose={() => setImporting(false)}
           onImported={imported}
         />

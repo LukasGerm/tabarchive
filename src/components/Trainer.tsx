@@ -35,6 +35,11 @@ import {
 import { ChordToneReview } from './ChordToneReview'
 import { HarmonyTrainer } from './HarmonyTrainer'
 import { IntervalTrainer } from './IntervalTrainer'
+import { readStored, writeStored } from '../lib/browser-storage'
+import {
+  trainerPreferencesKey,
+  trainerPreferencesSchema,
+} from '../lib/trainer-preferences'
 
 const modes: { value: TrainerMode; label: string }[] = [
   { value: 'name', label: 'Name a note' },
@@ -54,6 +59,15 @@ const ranges = [
 export default function Trainer() {
   const [state, dispatch] = useReducer(trainerReducer, initialTrainerState)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false)
+  useEffect(() => {
+    const saved = readStored(trainerPreferencesKey, trainerPreferencesSchema)
+    if (saved) dispatch({ type: 'settings', settings: saved })
+    setPreferencesLoaded(true)
+  }, [])
+  useEffect(() => {
+    if (preferencesLoaded) writeStored(trainerPreferencesKey, state.settings)
+  }, [state.settings, preferencesLoaded])
   const dialog = useRef<HTMLDialogElement>(null)
   const settingsButton = useRef<HTMLButtonElement>(null)
   const prompt = useRef<HTMLHeadingElement>(null)
@@ -136,7 +150,8 @@ export default function Trainer() {
           .join(' or ')
       : ''
   let feedback = 'Choose the note at the red marker.'
-  if (!question) feedback = 'Start a session. Nothing is saved when you leave.'
+  if (!question)
+    feedback = 'Start a session. Your practice settings are remembered.'
   else if (status === 'correct')
     feedback = `${wrongAnswers.length ? 'You found it' : 'Correct'} — ${answerName}.`
   else if (status === 'revealed')
@@ -679,8 +694,9 @@ export default function Trainer() {
               answers.
             </p>
             <p>
-              Retries and revealed answers break your streak. Practice stays in
-              memory only and resets when you leave or refresh.
+              Retries and revealed answers break your streak. Session scores
+              reset when you leave or refresh. Your practice settings are
+              remembered in this browser.
             </p>
           </details>
         )}

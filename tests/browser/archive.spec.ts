@@ -3,6 +3,11 @@ import { noteTechnique, parseScore } from '../../src/lib/score-model'
 
 test.use({ hasTouch: true })
 
+async function openActions(page: import('@playwright/test').Page) {
+  if ((await page.locator('.reader-more').getAttribute('open')) === null)
+    await page.locator('.reader-more > summary').click()
+}
+
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto('/')
   await page
@@ -161,6 +166,7 @@ test('mobile note controls add, save, reload, and remove hammer-ons and pull-off
   })
   const tab = await response.json()
   await page.goto(`/?tab=${tab.id}`)
+  await openActions(page)
   await page.getByRole('button', { name: 'Edit score', exact: true }).click()
   const editor = page.getByRole('dialog', { name: 'Legato study' })
   await editor
@@ -207,6 +213,7 @@ test('mobile note controls add, save, reload, and remove hammer-ons and pull-off
   expect(applyBounds!.y + applyBounds!.height).toBeLessThanOrEqual(844)
   await editor.getByRole('button', { name: 'Close editor' }).click()
   await page.reload()
+  await openActions(page)
   await page.getByRole('button', { name: 'Edit score', exact: true }).click()
   await editor
     .getByRole('button', {
@@ -261,6 +268,7 @@ test('Bin hides an arrangement from repertoire and restores its score, original,
     })
   ).json()
   await page.goto(`/?tab=${tab.id}`)
+  await openActions(page)
   await page.getByRole('button', { name: 'Move to Bin', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('moved to the Bin')
   await expect(
@@ -361,6 +369,7 @@ test('mobile owner flow: JSON import, reading, practice updates, and logout', as
   await expect(
     page.getByRole('button', { name: 'Start autoscroll' }),
   ).toBeVisible()
+  await page.getByRole('button', { name: /Notes & practice/ }).click()
   await page.getByLabel('Practice notes').fill('Remember the transition')
   await page.getByRole('button', { name: 'Save notes', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('Notes saved')
@@ -404,10 +413,12 @@ test('structured notation prints, supports touch editing, validates and saves wi
     .getByRole('button', { name: 'Add to archive', exact: true })
     .click()
   await expect(page.locator('.notation svg').first()).toBeVisible()
+  await openActions(page)
   await expect(page.getByRole('button', { name: 'Print / PDF' })).toBeEnabled()
   const id = new URL(page.url()).searchParams.get('tab')
   const originalResponse = await page.request.get(`/api/tabs/${id}/file`)
   const original = await originalResponse.text()
+  await openActions(page)
   await page.getByRole('button', { name: 'Edit score', exact: true }).click()
   const editor = page.getByRole('dialog', { name: 'Original notation test' })
   const firstNote = editor.getByRole('button', {
@@ -484,6 +495,7 @@ test('structured notation prints, supports touch editing, validates and saves wi
     .getByRole('button', { name: 'Discard edits', exact: true })
     .click()
   await page.reload()
+  await openActions(page)
   await page.getByRole('button', { name: 'Edit score', exact: true }).click()
   await expect(
     editor.getByRole('button', {
@@ -495,6 +507,7 @@ test('structured notation prints, supports touch editing, validates and saves wi
     .getByRole('button', { name: 'Close editor', exact: true })
     .click()
   const popupPromise = page.waitForEvent('popup')
+  await openActions(page)
   await page.getByRole('button', { name: 'Print / PDF' }).click()
   const popup = await popupPromise
   await expect(popup.locator('svg').first()).toBeAttached()
@@ -521,6 +534,7 @@ test('a source awaiting transcription accepts alphaTex and keeps review status a
   await expect(
     page.getByText('Transcription needed', { exact: true }),
   ).toBeVisible()
+  await openActions(page)
   await page.getByRole('button', { name: 'Edit score', exact: true }).click()
   const editor = page.getByRole('dialog', {
     name: 'Manual transcription study',
@@ -541,6 +555,7 @@ test('a source awaiting transcription accepts alphaTex and keeps review status a
   await expect(
     page.getByText('Transcription draft · needs review'),
   ).toBeVisible()
+  await openActions(page)
   await page.getByRole('button', { name: 'Edit score', exact: true }).click()
   await editor.getByRole('checkbox').check()
   await editor.getByRole('button', { name: 'Save score', exact: true }).click()

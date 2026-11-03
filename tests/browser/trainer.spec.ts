@@ -209,7 +209,7 @@ test('full-neck note naming keeps five answers alongside the board and reaches f
   ).toBeFocused()
 })
 
-test('mobile note practice supports touch, keyboard, retries, and session-only progress', async ({
+test('mobile note practice supports touch, keyboard, retries, remembered settings, and session-only progress', async ({
   page,
 }) => {
   await signIn(page)
@@ -271,12 +271,19 @@ test('mobile note practice supports touch, keyboard, retries, and session-only p
   await expect(page.getByRole('status')).toContainText(`Correct — ${answer}`)
   await expect(page.getByTestId('trainer-first-try')).toHaveText('2/3')
   expect(trainerRequests).toEqual([])
-  expect(
-    await page.evaluate(() => ({
-      local: { ...localStorage },
-      session: { ...sessionStorage },
-    })),
-  ).toEqual(storage)
+  const after = await page.evaluate(() => ({
+    local: { ...localStorage },
+    session: { ...sessionStorage },
+  }))
+  const preferences = JSON.parse(after.local['tabarchive:trainer-settings'])
+  expect(preferences).toMatchObject({
+    string: 0,
+    spelling: 'flats',
+    octaves: false,
+  })
+  delete after.local['tabarchive:trainer-settings']
+  delete storage.local['tabarchive:trainer-settings']
+  expect(after).toEqual(storage)
 
   await page.reload()
   await expect(page.getByTestId('trainer-completed')).toHaveText('0')

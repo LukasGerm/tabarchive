@@ -21,6 +21,8 @@ import {
   Printer,
   Pencil,
   Trash2,
+  NotebookPen,
+  MoreHorizontal,
 } from 'lucide-react'
 import { formatLabels, statusLabels, type ArchivedTab } from '../lib/archive'
 import { api, message, patch } from '../lib/client'
@@ -29,6 +31,12 @@ import { Score } from './Score'
 import { PdfScore } from './PdfScore'
 import { TextScore } from './TextScore'
 import { downloadAlphaTex, type ScoreDocument } from '../lib/score-document'
+import { usePracticeNotes } from '../hooks/usePracticeNotes'
+import { readStored, writeStored } from '../lib/browser-storage'
+import {
+  defaultReaderPreferences,
+  readerPreferencesSchema,
+} from '../lib/reader-preferences'
 
 const ScoreEditor = lazy(() => import('./ScoreEditor'))
 
@@ -44,9 +52,13 @@ export function Reader({
   const [bytes, setBytes] = useState<Uint8Array | null>(null)
   const [error, setError] = useState('')
   const [ready, setReady] = useState(false)
-  const [zoom, setZoom] = useState(1)
-  const [speed, setSpeed] = useState(24)
-  const [notes, setNotes] = useState(tab.notes)
+  const preferenceKey = `tabarchive:reader:${tab.id}`
+  const [preferences, setPreferences] = useState(defaultReaderPreferences)
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false)
+  const { zoom, speed, track } = preferences
+  const notes = usePracticeNotes(tab, onUpdated)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const actions = useRef<HTMLDetailsElement>(null)
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [printScore, setPrintScore] = useState<(() => void) | null>(null)
@@ -68,6 +80,28 @@ export function Reader({
     (callback: (() => void) | null) => setPrintScore(() => callback),
     [],
   )
+
+  useEffect(() => {
+    setPreferences(
+      readStored(preferenceKey, readerPreferencesSchema) ??
+        defaultReaderPreferences,
+    )
+    setPreferencesLoaded(true)
+  }, [preferenceKey])
+  useEffect(() => {
+    if (preferencesLoaded) writeStored(preferenceKey, preferences)
+  }, [preferenceKey, preferences, preferencesLoaded])
+  const onTrackSelected = useCallback((track: number) => {
+    setPreferences((current) => ({ ...current, track }))
+  }, [])
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      if (actions.current && !actions.current.contains(event.target as Node))
+        actions.current.open = false
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -124,6 +158,7 @@ export function Reader({
     try {
       setScoreDocument(await api<ScoreDocument>(`/api/tabs/${tab.id}/score`))
       setEditing(true)
+      if (actions.current) actions.current.open = false
     } catch (err) {
       setError(message(err))
     } finally {
@@ -159,7 +194,6 @@ export function Reader({
         <span className="format-label">{formatLabels[tab.format]}</span>
       </div>
       <header className="piece-heading">
-        <p className="eyebrow">A LITTLE TIME WITH YOUR GUITAR</p>
         <h1>{tab.title}</h1>
         <p className="artist">{tab.artist || 'Your arrangement'}</p>
         <div className="piece-meta">
@@ -177,16 +211,101 @@ export function Reader({
           )}
         </div>
       </header>
-      <section className="practice-panel">
-        <div>
-          <p className="eyebrow">LEAVE A NOTE FOR NEXT TIME</p>
-          <h2>How’s it feeling?</h2>
-          <p className="hint">
-            {tab.lastPlayedAt
-              ? `Last played ${new Date(tab.lastPlayedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
-              : 'Your practice history starts here.'}
-          </p>
-        </div>
+      <div className="reader-quick-actions">
+        <button
+          className="secondary"
+          aria-label="Notes & practice"
+          aria-expanded={notesOpen}
+          aria-controls="practice-notes-panel"
+          onClick={() => {
+            pause()
+            setNotesOpen((value) => !value)
+          }}
+        >
+          <NotebookPen size={17} /> Notes
+          {notes.dirty && <span className="draft-indicator">Draft</span>}
+        </button>
+        <button
+          className="secondary"
+          disabled={busy}
+          onClick={() =>
+            void update({ markPlayed: true }, 'Today’s practice is recorded.')
+          }
+        >
+          <Check size={17} /> Played today
+        </button>
+        <details
+          className="reader-more"
+          ref={actions}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && actions.current?.open) {
+              actions.current.open = false
+              actions.current.querySelector('summary')?.focus()
+            }
+          }}
+        >
+          <summary aria-label="Arrangement actions">
+            <MoreHorizontal size={19} /> <span>More</span>
+          </summary>
+          <div className="reader-actions">
+            <button
+              className="secondary"
+              disabled={!scoreDocument || busy}
+              onClick={() => void openEditor()}
+            >
+              <Pencil size={16} /> Edit score
+            </button>
+            {(tab.format !== 'link' || useScore) && (
+              <>
+                <button className="secondary" onClick={print} disabled={!ready}>
+                  <Printer size={16} /> Print / PDF
+                </button>
+                {tab.format !== 'link' && (
+                  <a
+                    className="text-button"
+                    href={`/api/tabs/${tab.id}/file`}
+                    download
+                  >
+                    <Download size={16} /> Original
+                  </a>
+                )}
+              </>
+            )}
+            {scoreDocument?.alphaTex && (
+              <button
+                className="text-button"
+                onClick={() =>
+                  downloadAlphaTex(scoreDocument.alphaTex!, tab.title)
+                }
+              >
+                <Download size={16} /> alphaTex
+              </button>
+            )}
+            {tab.sourceUrl && (
+              <a
+                className="text-button"
+                href={tab.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={16} /> Source
+              </a>
+            )}
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() => void remove()}
+            >
+              <Trash2 size={16} /> Move to Bin
+            </button>
+          </div>
+        </details>
+      </div>
+      <section
+        id="practice-notes-panel"
+        className="practice-panel"
+        hidden={!notesOpen}
+      >
         <div className="practice-controls">
           <label>
             Familiarity
@@ -207,97 +326,71 @@ export function Reader({
               ))}
             </select>
           </label>
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              void update({ markPlayed: true }, 'Today’s practice is recorded.')
-            }
-          >
-            <Check size={17} /> Played today
-          </button>
+          <p className="hint">
+            {tab.lastPlayedAt
+              ? `Last played ${new Date(tab.lastPlayedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+              : 'No practice recorded yet.'}
+          </p>
         </div>
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            void update({ notes }, 'Notes saved.')
+            void notes.save()
           }}
         >
           <label>
             Practice notes
             <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              value={notes.text}
+              onChange={(event) => {
+                setNotice('')
+                notes.change(event.target.value)
+              }}
               maxLength={10000}
-              rows={4}
-              placeholder="The transition to the B section. A better fingering. Something to return to."
+              rows={3}
+              aria-describedby="reader-feedback"
+              placeholder="A tricky transition. A fingering. Something for next time."
             />
           </label>
           <div className="notes-footer">
-            <p className="hint" role="status">
-              {notice}
-            </p>
-            <button
-              className="secondary"
-              disabled={busy || notes === tab.notes}
-            >
-              Save notes
-            </button>
+            <span className="hint">Changes save automatically.</span>
+            {notes.conflict ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => void notes.loadSaved()}
+              >
+                Use saved notes
+              </button>
+            ) : (
+              <button
+                className="secondary"
+                disabled={notes.saving || !notes.dirty}
+              >
+                {notes.saving
+                  ? 'Saving…'
+                  : notes.error
+                    ? 'Retry saving notes'
+                    : 'Save notes'}
+              </button>
+            )}
           </div>
         </form>
       </section>
-      <div className="reader-actions">
-        <button
-          className="secondary"
-          disabled={!scoreDocument || busy}
-          onClick={() => void openEditor()}
-        >
-          <Pencil size={16} /> Edit score
-        </button>
-        {(tab.format !== 'link' || useScore) && (
-          <>
-            <button className="secondary" onClick={print} disabled={!ready}>
-              <Printer size={16} /> Print / PDF
-            </button>
-            {tab.format !== 'link' && (
-              <a
-                className="text-button"
-                href={`/api/tabs/${tab.id}/file`}
-                download
-              >
-                <Download size={16} /> Original
-              </a>
-            )}
-          </>
-        )}
-        {scoreDocument?.alphaTex && (
-          <button
-            className="text-button"
-            onClick={() => downloadAlphaTex(scoreDocument.alphaTex!, tab.title)}
-          >
-            <Download size={16} /> alphaTex
-          </button>
-        )}
-        {tab.sourceUrl && (
-          <a
-            className="text-button"
-            href={tab.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <ExternalLink size={16} /> Source
-          </a>
-        )}
-        <button
-          className="text-button"
-          disabled={busy}
-          onClick={() => void remove()}
-        >
-          <Trash2 size={16} /> Move to Bin
-        </button>
-      </div>
+      {(notesOpen || notes.dirty || notice) && (
+        <p className="reader-feedback hint" id="reader-feedback" role="status">
+          {notes.dirty ? notes.status : notice || notes.status}
+        </p>
+      )}
+      {notes.error && (
+        <p className="error" role="alert">
+          {notes.error}
+        </p>
+      )}
       {scoreDocument && (
-        <div className="score-status">
+        <div
+          className={`score-status ${scoreDocument.status === 'ready' ? 'score-ready' : ''}`}
+        >
           <div>
             <strong>
               {scoreDocument.status === 'ready'
@@ -343,6 +436,8 @@ export function Reader({
             zoom={zoom}
             onReady={onReady}
             onPrintReady={onPrintReady}
+            initialTrack={track}
+            onTrackSelected={onTrackSelected}
           />
         ) : tab.format === 'link' ? (
           <div className="empty">
@@ -381,6 +476,8 @@ export function Reader({
                   zoom={zoom}
                   onReady={onReady}
                   onPrintReady={onPrintReady}
+                  initialTrack={track}
+                  onTrackSelected={onTrackSelected}
                 />
               ))}
           </>
@@ -444,7 +541,12 @@ export function Reader({
               max={80}
               step={1}
               value={speed}
-              onChange={(event) => setSpeed(Number(event.target.value))}
+              onChange={(event) =>
+                setPreferences((current) => ({
+                  ...current,
+                  speed: Number(event.target.value),
+                }))
+              }
             />
           </label>
           <div className="zoom-control">
@@ -454,7 +556,10 @@ export function Reader({
               disabled={zoom <= 0.7}
               onClick={() => {
                 pause()
-                setZoom((value) => Math.max(0.7, +(value - 0.1).toFixed(1)))
+                setPreferences((current) => ({
+                  ...current,
+                  zoom: Math.max(0.7, +(current.zoom - 0.1).toFixed(1)),
+                }))
               }}
             >
               <Minus size={17} />
@@ -466,7 +571,10 @@ export function Reader({
               disabled={zoom >= 1.8}
               onClick={() => {
                 pause()
-                setZoom((value) => Math.min(1.8, +(value + 0.1).toFixed(1)))
+                setPreferences((current) => ({
+                  ...current,
+                  zoom: Math.min(1.8, +(current.zoom + 0.1).toFixed(1)),
+                }))
               }}
             >
               <Plus size={17} />

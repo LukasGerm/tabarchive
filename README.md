@@ -54,6 +54,12 @@ Autoscroll is adjustable in pixels per second, starts after a three-second count
 
 “Print / PDF” opens the browser's print flow. Structured scores use alphaTab's print layout; text/PDF readers use print CSS. Choose “Save as PDF” in the browser. There is no server-side PDF-generation queue. Existing PDF layouts cannot reflow like structured scores.
 
+The reader opens with the score first. **Notes** expands familiarity and practice notes; **More** contains editing, printing, downloads, source links, and Move to Bin. Zoom, scroll speed, and instrument selection are remembered per arrangement in this browser.
+
+Practice notes save automatically after a short pause. A browser-local draft is kept immediately, so navigating away or refreshing before a save does not lose your text. Failed saves expose a retry; stale saves cannot overwrite notes changed in another window. If a conflict occurs, copy your draft before choosing **Use saved notes**. When browser draft storage is unavailable, the reader warns before leaving with unsaved notes.
+
+Import details and pasted text are kept as a browser-local draft across method changes, closing, and refreshes. A selected upload stays available when closing and reopening the dialog in the same visit; after a refresh, choose the file again. Permission confirmation is not restored after refreshing. A successful import clears its draft; **Discard draft** clears it explicitly. Drafts stay in this browser, including after signing out, until saved or discarded; they do not sync between devices and are not included in server backups.
+
 The repertoire stores learning status, notes, and the last practice date. Tap **Played today** in the reader to record practice. In the collection, **Sort by → Least recently played** brings never-played pieces first, followed by those you have left the longest. You can also sort by most recently played, recently added (the default), or title. Each row shows its last practice date, and your sort choice is remembered in this browser. Sorting works together with search and familiarity filters.
 
 The included demo is an original exercise created for this project. Third-party music is not part of the source repository or test fixtures.
@@ -80,7 +86,7 @@ Harmony starts in **C major** with **triads**. Choose any of the twelve major ke
 
 The trainer opens a dedicated practice screen with the archive’s cream and green theme and shared typography. A compact back button returns to the repertoire; the archive header and navigation stay out of the practice area. It starts with frets **0–12** and all twelve notes selected. Visible range buttons select **0–5**, **0–12**, **5–12**, or **12–24**; both the questions and the displayed neck use that range. Chord mode starts with all shapes and has visible open/movable/all filters. Movable includes both barre chords and compact fingerings with no open strings. The settings button selects a single string or all strings, natural or all twelve notes, sharp or flat spelling, and octave labels. Note names use international B/B♭ notation. Diagrams run from low E on the left to high E on the right. Name and chord exercises keep the board and choices alongside each other on a phone. Short screens scroll to preserve readable frets and prevent controls from overlapping; Find a note keeps large fret touch targets. Starting or advancing a question brings its prompt into view.
 
-Retries and revealed answers are separate from first-try successes. Answer counts and streaks live only in React memory: leaving the trainer or refreshing starts over. The trainer requires no database, files, local storage, or practice API calls; it uses the existing owner login.
+Retries and revealed answers are separate from first-try successes. Answer counts and streaks live only in React memory: leaving the trainer or refreshing starts over. Trainer settings—including mode, range, string, note labels, and theory choices—are remembered in this browser. Session scores and recall queues still reset on leaving or refreshing. The trainer requires no database, files, or practice API calls; it uses the existing owner login. If browser storage is unavailable, settings work for the current visit.
 
 ## Storage and architecture
 

@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { readStored, removeStored, writeStored } from '../lib/browser-storage'
+import {
+  emptyImportDraft,
+  hasImportDraft,
+  importDraftKey,
+  importDraftSchema,
+  type ImportDraft,
+} from '../lib/import-draft'
 import { Clipboard, FileUp, Link2, TextCursorInput, X } from 'lucide-react'
 import { api, message } from '../lib/client'
 import { detectFormat, type ArchivedTab } from '../lib/archive'
@@ -10,38 +18,101 @@ import {
 } from '../lib/import-document'
 
 export function ImportDialog({
+  open,
   onClose,
   onImported,
 }: {
+  open: boolean
   onClose: () => void
   onImported: (tab: ArchivedTab) => void
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
-  const [mode, setMode] = useState<'url' | 'file' | 'text' | 'link'>('url')
+  const [draft, setDraft] = useState(emptyImportDraft)
+  const draftRef = useRef(draft)
+  const { mode, source, preview, pasted, textFormat, fields, fileName } = draft
   const [file, setFile] = useState<File | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [source, setSource] = useState('')
-  const [preview, setPreview] = useState<ImportDocument | null>(null)
-  const [pasted, setPasted] = useState('')
-  const [textFormat, setTextFormat] = useState('text')
-  const [formVersion, setFormVersion] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [permission, setPermission] = useState(false)
+  const [draftProtected, setDraftProtected] = useState(true)
+  const [discarding, setDiscarding] = useState(false)
   useEffect(() => {
-    dialog.current?.showModal()
+    const saved = readStored(importDraftKey, importDraftSchema)
+    if (saved) {
+      draftRef.current = saved
+      setDraft(saved)
+    }
   }, [])
+  useEffect(() => {
+    if (open) dialog.current?.showModal()
+    else dialog.current?.close()
+  }, [open])
+  useEffect(() => {
+    if (!file && (draftProtected || !hasImportDraft(draft))) return
+    const prevent = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', prevent)
+    return () => window.removeEventListener('beforeunload', prevent)
+  }, [file, draftProtected, draft])
 
+  function change(update: Partial<ImportDraft>) {
+    const next = { ...draftRef.current, ...update }
+    draftRef.current = next
+    setDraft(next)
+    setDraftProtected(writeStored(importDraftKey, next))
+  }
+  function field(name: keyof ImportDraft['fields'], value: string) {
+    change({ fields: { ...draftRef.current.fields, [name]: value } })
+  }
+  function clearDraft() {
+    removeStored(importDraftKey)
+    draftRef.current = emptyImportDraft
+    setDraft(emptyImportDraft)
+    setFile(null)
+    if (fileInput.current) fileInput.current.value = ''
+    setPermission(false)
+    setError('')
+    setDiscarding(false)
+    setDraftProtected(true)
+  }
+  function close() {
+    if (busy) return
+    if (
+      !draftProtected &&
+      hasImportDraft(draft) &&
+      !window.confirm(
+        'This draft could not be saved in your browser. Close anyway?',
+      )
+    )
+      return
+    onClose()
+  }
   function applyDocument(document: ImportDocument) {
-    setPreview(document)
-    setPasted(document.content)
-    setTextFormat(document.format)
-    setFormVersion((value) => value + 1)
+    change({
+      preview: document,
+      pasted: document.content,
+      textFormat: document.format,
+      fields: {
+        title: document.title,
+        artist: document.artist,
+        sourceUrl: document.sourceUrl,
+        tuning: document.tuning,
+        capo: String(document.capo),
+        attribution: document.attribution,
+        notes: document.notes,
+      },
+    })
+    setPermission(false)
   }
 
   async function fetchSource() {
     setBusy(true)
     setError('')
-    setPreview(null)
+    change({ preview: null })
     try {
       applyDocument(
         await api<ImportDocument>('/api/import', {
@@ -104,10 +175,14 @@ export function ImportDialog({
           ),
         )
       }
+      if (mode === 'url' && preview)
+        form.set('sourceUrl', fields.sourceUrl || preview.sourceUrl || source)
       const tab = await api<ArchivedTab>('/api/tabs', {
         method: 'POST',
         body: form,
       })
+      clearDraft()
+      setBusy(false)
       onImported(tab)
     } catch (err) {
       setError(message(err))
@@ -115,24 +190,27 @@ export function ImportDialog({
     }
   }
 
+  if (!open) return null
+
   return (
     <dialog
       ref={dialog}
       className="import-dialog"
+      aria-labelledby="import-title"
       onCancel={(event) => {
         event.preventDefault()
-        if (!busy) onClose()
+        close()
       }}
     >
       <div className="dialog-heading">
         <div>
           <p className="eyebrow">MAKE IT PART OF YOUR REPERTOIRE</p>
-          <h2>Add an arrangement</h2>
+          <h2 id="import-title">Add an arrangement</h2>
         </div>
         <button
           className="icon-button"
           aria-label="Close import"
-          onClick={onClose}
+          onClick={close}
           disabled={busy}
         >
           <X size={20} />
@@ -159,11 +237,7 @@ export function ImportDialog({
             }
             disabled={busy}
             onClick={() => {
-              if (value !== mode) {
-                setPreview(null)
-                setFormVersion((version) => version + 1)
-              }
-              setMode(value)
+              change({ mode: value })
               setError('')
             }}
           >
@@ -180,8 +254,18 @@ export function ImportDialog({
               type="url"
               value={source}
               onChange={(event) => {
-                setSource(event.target.value)
-                setPreview(null)
+                change({
+                  source: event.target.value,
+                  preview: null,
+                  fields: {
+                    ...fields,
+                    sourceUrl:
+                      !fields.sourceUrl || fields.sourceUrl === source
+                        ? event.target.value
+                        : fields.sourceUrl,
+                  },
+                })
+                setPermission(false)
               }}
               placeholder="https://tabs.ultimate-guitar.com/tab/…"
               disabled={busy}
@@ -193,7 +277,7 @@ export function ImportDialog({
               type="button"
               disabled={busy || !source}
               onClick={() => {
-                setMode('url')
+                change({ mode: 'url' })
                 void fetchSource()
               }}
             >
@@ -204,9 +288,10 @@ export function ImportDialog({
               type="button"
               disabled={busy}
               onClick={() => {
-                setMode('link')
-                setPreview(null)
-                setFormVersion((value) => value + 1)
+                change({
+                  mode: 'link',
+                  fields: { ...fields, sourceUrl: fields.sourceUrl || source },
+                })
               }}
             >
               Save link only
@@ -230,20 +315,46 @@ export function ImportDialog({
           )}
         </div>
       )}
-      <form key={formVersion} onSubmit={submit}>
+      {discarding && (
+        <div className="import-discard" role="alert">
+          <p>Discard the saved import draft?</p>
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => setDiscarding(false)}
+          >
+            Keep editing
+          </button>
+          <button className="danger" type="button" onClick={clearDraft}>
+            Discard import draft
+          </button>
+        </div>
+      )}
+      <form onSubmit={submit}>
         <fieldset disabled={busy}>
           {mode === 'file' && (
             <label className="upload-zone">
               <FileUp size={28} />
-              <strong>{file?.name ?? 'Choose a tab from your files'}</strong>
+              <strong>
+                {file?.name ??
+                  (fileName
+                    ? `Choose ${fileName} again`
+                    : 'Choose a tab from your files')}
+              </strong>
               <span>
                 Guitar Pro, MusicXML, alphaTex, TXT or PDF · up to 10 MB
               </span>
               <input
+                ref={fileInput}
                 aria-label="Tab file"
                 type="file"
                 accept=".gp,.gp3,.gp4,.gp5,.gpx,.xml,.musicxml,.mxl,.alphatex,.atex,.txt,.pdf"
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => {
+                  const selected = event.target.files?.[0] ?? null
+                  setFile(selected)
+                  change({ fileName: selected?.name ?? '' })
+                  setPermission(false)
+                }}
               />
             </label>
           )}
@@ -254,7 +365,11 @@ export function ImportDialog({
                 <select
                   name="textFormat"
                   value={textFormat}
-                  onChange={(event) => setTextFormat(event.target.value)}
+                  onChange={(event) =>
+                    change({
+                      textFormat: event.target.value as 'text' | 'alphatex',
+                    })
+                  }
                 >
                   <option value="text">
                     Plain-text tablature / import JSON
@@ -268,7 +383,11 @@ export function ImportDialog({
                   className="tab-input"
                   name="content"
                   value={pasted}
-                  onChange={(event) => setPasted(event.target.value)}
+                  onChange={(event) => {
+                    change({ pasted: event.target.value })
+                    setPermission(false)
+                  }}
+                  maxLength={500000}
                   rows={7}
                   placeholder="Paste tablature or a tabarchive/v1 JSON document…"
                   required
@@ -316,7 +435,8 @@ export function ImportDialog({
             Title
             <input
               name="title"
-              defaultValue={preview?.title ?? ''}
+              value={fields.title}
+              onChange={(event) => field('title', event.target.value)}
               placeholder="Name of the piece"
               required
               maxLength={160}
@@ -326,7 +446,8 @@ export function ImportDialog({
             Artist / composer
             <input
               name="artist"
-              defaultValue={preview?.artist ?? ''}
+              value={fields.artist}
+              onChange={(event) => field('artist', event.target.value)}
               placeholder="Who wrote it?"
               maxLength={160}
             />
@@ -337,7 +458,8 @@ export function ImportDialog({
             <input
               name="sourceUrl"
               type="url"
-              defaultValue={preview?.sourceUrl ?? source}
+              value={fields.sourceUrl}
+              onChange={(event) => field('sourceUrl', event.target.value)}
               placeholder="https://…"
               required={mode === 'link'}
             />
@@ -349,7 +471,8 @@ export function ImportDialog({
                 Tuning
                 <input
                   name="tuning"
-                  defaultValue={preview?.tuning ?? 'E A D G B E'}
+                  value={fields.tuning}
+                  onChange={(event) => field('tuning', event.target.value)}
                   maxLength={100}
                 />
               </label>
@@ -360,7 +483,8 @@ export function ImportDialog({
                   type="number"
                   min={0}
                   max={12}
-                  defaultValue={preview?.capo ?? 0}
+                  value={fields.capo}
+                  onChange={(event) => field('capo', event.target.value)}
                 />
               </label>
             </div>
@@ -368,7 +492,8 @@ export function ImportDialog({
               Arranger / attribution
               <input
                 name="attribution"
-                defaultValue={preview?.attribution ?? ''}
+                value={fields.attribution}
+                onChange={(event) => field('attribution', event.target.value)}
                 placeholder="Credit the arrangement"
                 maxLength={300}
               />
@@ -377,7 +502,8 @@ export function ImportDialog({
               Practice notes
               <textarea
                 name="notes"
-                defaultValue={preview?.notes ?? ''}
+                value={fields.notes}
+                onChange={(event) => field('notes', event.target.value)}
                 rows={3}
                 maxLength={10000}
                 placeholder="A tricky transition, a fingering to remember…"
@@ -388,6 +514,8 @@ export function ImportDialog({
             <label className="checkbox">
               <input
                 type="checkbox"
+                checked={permission}
+                onChange={(event) => setPermission(event.target.checked)}
                 name="permission"
                 value="confirmed"
                 required
@@ -405,7 +533,24 @@ export function ImportDialog({
           </p>
         )}
         <div className="dialog-footer">
-          <span className="hint">Only visible to you.</span>
+          <div className="hint">
+            {hasImportDraft(draft)
+              ? draftProtected
+                ? 'Draft kept in this browser.'
+                : 'Browser draft storage unavailable. Keep this window open.'
+              : 'Only visible to you.'}
+            {file && <p>Choose the file again after a page refresh.</p>}
+            {hasImportDraft(draft) && (
+              <button
+                className="text-button"
+                type="button"
+                disabled={busy}
+                onClick={() => setDiscarding(true)}
+              >
+                Discard draft
+              </button>
+            )}
+          </div>
           <button
             className="primary"
             disabled={busy || (mode === 'url' && !preview)}

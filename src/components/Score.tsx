@@ -12,6 +12,8 @@ export function Score({
   selectedNote,
   onTrackChange,
   selectionLocked = false,
+  initialTrack = 0,
+  onTrackSelected,
 }: {
   bytes: Uint8Array
   format: TabFormat
@@ -22,6 +24,8 @@ export function Score({
   selectedNote?: string
   onTrackChange?: () => void
   selectionLocked?: boolean
+  initialTrack?: number
+  onTrackSelected?: (index: number) => void
 }) {
   const element = useRef<HTMLDivElement>(null)
   const stage = useRef<HTMLDivElement>(null)
@@ -29,8 +33,8 @@ export function Score({
   const api = useRef<AlphaTabApi | null>(null)
   const [error, setError] = useState('')
   const [tracks, setTracks] = useState<{ index: number; name: string }[]>([])
-  const [track, setTrack] = useState(0)
-  const trackRef = useRef(0)
+  const [track, setTrack] = useState(initialTrack)
+  const trackRef = useRef(initialTrack)
   const handlers = useRef({ onNoteSelect })
   handlers.current = { onNoteSelect }
   const [targets, setTargets] = useState<
@@ -200,6 +204,7 @@ export function Score({
               setTrack(index)
               trackRef.current = index
               onTrackChange?.()
+              onTrackSelected?.(index)
               setTargets([])
               const selected = api.current?.score?.tracks[index]
               if (selected) api.current?.renderTracks([selected])

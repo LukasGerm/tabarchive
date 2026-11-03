@@ -65,6 +65,27 @@ function form() {
 }
 
 describe('private archive storage', () => {
+  it('rejects a stale notes autosave without changing saved notes or other metadata', async () => {
+    const tab = await createTab(form())
+    await updateTab(tab.id, { notes: 'Newer notes', notesBase: tab.notes })
+    await expect(
+      updateTab(tab.id, {
+        notes: 'Stale draft',
+        notesBase: tab.notes,
+        status: 'learning',
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+    expect(await getTab(tab.id)).toMatchObject({
+      notes: 'Newer notes',
+      status: 'solid',
+    })
+    const saved = await updateTab(tab.id, {
+      notes: 'Merged notes',
+      notesBase: 'Newer notes',
+    })
+    expect(saved.notes).toBe('Merged notes')
+    expect(saved).not.toHaveProperty('notesBase')
+  })
   it('round-trips the original file and metadata without using public paths', async () => {
     const tab = await createTab(form())
     expect((await getFile(tab.id)).bytes.toString()).toBe(

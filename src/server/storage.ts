@@ -143,6 +143,7 @@ const updateSchema = z
     tuning: metadataSchema.shape.tuning.removeDefault().optional(),
     capo: metadataSchema.shape.capo.removeDefault().optional(),
     notes: metadataSchema.shape.notes.removeDefault().optional(),
+    notesBase: z.string().max(10000).optional(),
     status: metadataSchema.shape.status.removeDefault().optional(),
     markPlayed: z.boolean().optional(),
     trashed: z.boolean().optional(),
@@ -150,8 +151,18 @@ const updateSchema = z
   .strict()
 export function updateTab(id: string, input: unknown) {
   return exclusive(id, async () => {
-    const { markPlayed, trashed, ...metadata } = updateSchema.parse(input)
+    const { markPlayed, trashed, notesBase, ...metadata } =
+      updateSchema.parse(input)
     const current = await getTab(id)
+    if (
+      metadata.notes !== undefined &&
+      notesBase !== undefined &&
+      notesBase !== current.notes
+    )
+      throw new HttpError(
+        409,
+        'Notes changed in another window. Your draft has been kept.',
+      )
     const tab = {
       ...current,
       ...metadata,
