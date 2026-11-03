@@ -66,7 +66,7 @@
 }
 .trainer-modes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   background: #eeefe7;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -674,6 +674,152 @@
   margin-top: 12px;
 }
 
+.fretboard-study {
+  padding: 22px 0;
+}
+.study-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.8fr);
+  gap: 40px;
+  align-items: start;
+  margin-top: 8px;
+}
+.study-controls {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  gap: 20px;
+}
+.study-focus legend {
+  font-size: 13px;
+  font-weight: 550;
+  margin-bottom: 8px;
+}
+.study-focus > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.study-focus button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--green);
+}
+.study-focus button[aria-pressed='true'] {
+  border-color: var(--green);
+  background: #e8eddf;
+  font-weight: 650;
+}
+.study-recall-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.study-instruction,
+.study-tip {
+  color: #667468;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.study-tip {
+  grid-column: 2;
+  grid-row: 2;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.study-tip strong {
+  color: var(--green);
+}
+.study-tip p {
+  margin-top: 6px;
+}
+.study-board {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  padding-left: 8px;
+}
+.study-board .string-headings {
+  min-height: 36px;
+}
+.study-board .string-headings small {
+  display: block;
+  font-size: 9px;
+}
+.study-row {
+  min-height: 24px;
+}
+.study-row.open-strings {
+  min-height: 32px;
+}
+.study-row.study-active-row {
+  min-height: 48px;
+}
+.study-active-row .fret-cell {
+  background-color: #dce5d4;
+}
+.study-active-row .fret-marker {
+  width: 32px;
+  height: 32px;
+  background: var(--green);
+  color: var(--paper);
+  font-size: 14px;
+}
+.study-active-row .fret-number {
+  color: var(--green);
+  font-size: 15px;
+  font-weight: 650;
+}
+.study-note-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  align-self: stretch;
+  padding: 0;
+  z-index: 3;
+}
+.study-note-button:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: -3px;
+}
+.study-active-row .study-hidden-note {
+  background: var(--paper);
+  color: var(--green);
+  border: 1px dashed #7a8e70;
+}
+.study-open-note {
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .study-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .study-controls,
+  .study-board,
+  .study-tip {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .study-controls {
+    gap: 12px;
+  }
+  .study-controls > label {
+    flex-direction: row;
+    align-items: center;
+  }
+  .study-controls select {
+    width: auto;
+    flex: 1;
+    padding: 8px;
+  }
+}
+
 .harmony-trainer {
   gap: 14px;
 }
@@ -1077,7 +1223,10 @@
 }
 @media (max-width: 600px) {
   .trainer-modes {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .trainer-modes > button:first-child {
+    grid-column: span 2;
   }
   .interval-choices.trainer-choices {
     grid-template-columns: repeat(2, minmax(0, 1fr));

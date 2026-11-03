@@ -68,6 +68,7 @@ The included demo is an original exercise created for this project. Third-party 
 
 Open **Trainer** in the main navigation after signing in (direct link: `/?view=trainer`). The exercises use standard guitar tuning:
 
+- **Learn:** browse note names with frets **3, 5, 7, and 9** highlighted. Focus on all four together, one fret at a time, or the full **0–12** neck. Choose sharp or flat spelling, then **Hide notes** to recall them: tap a position to reveal/hide its name, or use arrow keys and Enter/Space. **Hide again** clears the revealed notes. This view has no score; returning to the same exercise preserves your current question and session progress.
 - **Find a note:** tap a matching fret on the requested string. Open strings and the octave at fret 12 both count when available. Arrow keys move keyboard focus around the fretboard; Enter or Space submits.
 - **Name a note** (default): identify the red marker from five answers beside the neck. Note names include sounding-pitch octaves, such as E2 for open low E; switch to note-only labels in Practice settings.
 - **Chord shapes:** identify one of 69 open and movable fingerings across 18 chord qualities: major, minor, dominant 7, maj7, m7, dim, dim7, m7♭5, aug, sus2, sus4, 6, m6, add9, m(add9), add11, m(add11), and 9. Answers explain the chord tones, and equivalent harmonies never compete as answer choices.

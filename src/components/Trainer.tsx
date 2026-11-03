@@ -26,6 +26,7 @@ import {
   type TrainerSettings,
 } from '../lib/trainer'
 import { TrainerFretboard } from './TrainerFretboard'
+import { FretboardStudy } from './FretboardStudy'
 import {
   chordRoles,
   chordToneName,
@@ -59,6 +60,7 @@ const ranges = [
 export default function Trainer() {
   const [state, dispatch] = useReducer(trainerReducer, initialTrainerState)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [studyOpen, setStudyOpen] = useState(false)
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   useEffect(() => {
     const saved = readStored(trainerPreferencesKey, trainerPreferencesSchema)
@@ -180,7 +182,9 @@ export default function Trainer() {
   }
 
   return (
-    <main className={`trainer-page mode-${settings.mode}`}>
+    <main
+      className={`trainer-page mode-${studyOpen ? 'study' : settings.mode}`}
+    >
       <div className="trainer-shell">
         <header className="trainer-topbar">
           <Link
@@ -192,30 +196,48 @@ export default function Trainer() {
             <ArrowLeft size={21} />
           </Link>
           <h1>Fretboard trainer</h1>
-          <button
-            ref={settingsButton}
-            className="trainer-icon-button"
-            aria-label="Practice settings"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings2 size={21} />
-          </button>
+          {!studyOpen && (
+            <button
+              ref={settingsButton}
+              className="trainer-icon-button"
+              aria-label="Practice settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings2 size={21} />
+            </button>
+          )}
         </header>
         <div className="trainer-modes" role="group" aria-label="Exercise mode">
+          <button
+            aria-label="Learn fretboard"
+            aria-pressed={studyOpen}
+            onClick={() => setStudyOpen(true)}
+          >
+            Learn
+          </button>
           {modes.map((mode) => (
             <button
               key={mode.value}
               aria-pressed={
-                settings.mode === mode.value ||
-                (mode.value === 'roots' && toneMode)
+                !studyOpen &&
+                (settings.mode === mode.value ||
+                  (mode.value === 'roots' && toneMode))
               }
-              onClick={() => configure({ mode: mode.value })}
+              onClick={() => {
+                setStudyOpen(false)
+                const sameExercise =
+                  settings.mode === mode.value ||
+                  (mode.value === 'roots' && toneMode)
+                if (!studyOpen || !sameExercise) configure({ mode: mode.value })
+              }}
             >
               {mode.label}
             </button>
           ))}
         </div>
-        {settings.mode === 'intervals' ? (
+        {studyOpen ? (
+          <FretboardStudy spelling={settings.spelling} />
+        ) : settings.mode === 'intervals' ? (
           <IntervalTrainer
             question={
               currentQuestion?.mode === 'intervals' ? currentQuestion : null
@@ -519,30 +541,33 @@ export default function Trainer() {
             </section>
           </>
         )}
-        <footer className="trainer-session" aria-label="Session progress">
-          <span>
-            <strong data-testid="trainer-completed">{state.completed}</strong>{' '}
-            answered
-          </span>
-          <span>
-            <strong data-testid="trainer-first-try">
-              {state.firstTry}/{state.completed}
-            </strong>{' '}
-            first try · unaided
-          </span>
-          <span>
-            <Flame size={15} />
-            <strong data-testid="trainer-streak">{state.streak}</strong> streak
-          </span>
-          <button
-            className="trainer-icon-button"
-            aria-label="Reset session"
-            disabled={!currentQuestion && !state.completed}
-            onClick={() => dispatch({ type: 'reset' })}
-          >
-            <RotateCcw size={18} />
-          </button>
-        </footer>
+        {!studyOpen && (
+          <footer className="trainer-session" aria-label="Session progress">
+            <span>
+              <strong data-testid="trainer-completed">{state.completed}</strong>{' '}
+              answered
+            </span>
+            <span>
+              <strong data-testid="trainer-first-try">
+                {state.firstTry}/{state.completed}
+              </strong>{' '}
+              first try · unaided
+            </span>
+            <span>
+              <Flame size={15} />
+              <strong data-testid="trainer-streak">{state.streak}</strong>{' '}
+              streak
+            </span>
+            <button
+              className="trainer-icon-button"
+              aria-label="Reset session"
+              disabled={!currentQuestion && !state.completed}
+              onClick={() => dispatch({ type: 'reset' })}
+            >
+              <RotateCcw size={18} />
+            </button>
+          </footer>
+        )}
       </div>
       <dialog
         ref={dialog}

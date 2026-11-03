@@ -82,6 +82,154 @@ async function capture(page: Page, name: string) {
   })
 }
 
+test('learning shows landmark notes and spelling on mobile and desktop', async ({
+  page,
+}) => {
+  await signIn(page)
+  await page.getByRole('button', { name: 'Learn fretboard' }).click()
+  const board = page.getByRole('table', { name: 'Notes on the fretboard' })
+  const expected = [
+    [3, ['G', 'C', 'F', 'A♯', 'D', 'G']],
+    [5, ['A', 'D', 'G', 'C', 'E', 'A']],
+    [7, ['B', 'E', 'A', 'D', 'F♯', 'B']],
+    [9, ['C♯', 'F♯', 'B', 'E', 'G♯', 'C♯']],
+  ] as const
+  await expect(board.locator('.study-active-row')).toHaveCount(4)
+  for (const [fret, names] of expected) {
+    await expect(
+      board.locator(`[data-fret="${fret}"] .fret-marker`),
+    ).toHaveText([...names])
+  }
+  await expect(board.locator('[data-fret="4"] .fret-marker')).toHaveCount(0)
+  await expect(page.getByLabel('Session progress')).toHaveCount(0)
+  await page
+    .locator('.study-controls')
+    .getByRole('combobox', { name: 'Note names', exact: true })
+    .selectOption('flats')
+  await expect(board.locator('[data-fret="3"] .fret-marker')).toHaveText([
+    'G',
+    'C',
+    'F',
+    'B♭',
+    'D',
+    'G',
+  ])
+  await expect(board.locator('[data-fret="9"] .fret-marker')).toHaveText([
+    'D♭',
+    'G♭',
+    'B',
+    'E',
+    'A♭',
+    'D♭',
+  ])
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 390, height: 844 },
+    { width: 1280, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await capture(page, `trainer-learn-${viewport.width}.png`)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true)
+    for (const row of await board.locator('.study-active-row').all()) {
+      expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    }
+  }
+  await page.getByRole('button', { name: 'Focus fret 7', exact: true }).click()
+  await expect(board.locator('.study-active-row')).toHaveCount(1)
+  await expect(board.locator('[data-fret="7"] .fret-marker')).toHaveText([
+    'B',
+    'E',
+    'A',
+    'D',
+    'G♭',
+    'B',
+  ])
+  await page.getByRole('button', { name: 'All 0–12' }).click()
+  await expect(board.locator('.fret-marker')).toHaveCount(78)
+  for (const fret of [0, 12]) {
+    await expect(
+      board.locator(`[data-fret="${fret}"] .fret-marker`),
+    ).toHaveText(['E', 'A', 'D', 'G', 'B', 'E'])
+  }
+  await page.setViewportSize({ width: 320, height: 568 })
+  await capture(page, 'trainer-learn-all-mobile.png')
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+})
+
+test('learning supports recall by touch and keyboard without changing quiz progress', async ({
+  page,
+}) => {
+  await signIn(page)
+  await page.getByRole('button', { name: 'Start practice' }).click()
+  await page.getByRole('button', { name: 'Show answer', exact: true }).click()
+  await page.getByRole('button', { name: 'Next question' }).click()
+  const question = await page
+    .getByRole('img', { name: /^Marked position:/ })
+    .getAttribute('aria-label')
+  await page.getByRole('button', { name: 'Learn fretboard' }).click()
+  await page.getByRole('button', { name: 'Hide notes', exact: true }).click()
+  const board = page.getByRole('table', { name: 'Notes on the fretboard' })
+  await expect(board.getByRole('button')).toHaveCount(24)
+  await expect(board.locator('.fret-marker')).toHaveText(Array(24).fill('?'))
+  const first = board.getByRole('button', {
+    name: 'String 6 (E), fret 3: hidden note',
+    exact: true,
+  })
+  await first.tap()
+  await expect(
+    board.getByRole('button', { name: 'String 6 (E), fret 3: G', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await board.locator('[data-position="0:3"]').focus()
+  await page.keyboard.press('ArrowDown')
+  await expect(board.locator('[data-position="0:5"]')).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('Enter')
+  await expect(
+    board.getByRole('button', { name: 'String 5 (A), fret 5: D', exact: true }),
+  ).toBeFocused()
+  await page.keyboard.press('Space')
+  await expect(
+    board.getByRole('button', {
+      name: 'String 5 (A), fret 5: hidden note',
+      exact: true,
+    }),
+  ).toBeFocused()
+  await page.getByRole('button', { name: 'Hide again' }).click()
+  await expect(board.locator('.fret-marker')).toHaveText(Array(24).fill('?'))
+  await page.getByRole('button', { name: 'Focus fret 9', exact: true }).click()
+  await expect(board.getByRole('button')).toHaveCount(6)
+  await expect(board.locator('button[tabindex="0"]')).toHaveAttribute(
+    'data-position',
+    '0:9',
+  )
+  await page.getByRole('button', { name: 'Show all notes' }).click()
+  await expect(board.locator('[data-fret="9"] .fret-marker')).toHaveText([
+    'C♯',
+    'F♯',
+    'B',
+    'E',
+    'G♯',
+    'C♯',
+  ])
+  await page.getByRole('button', { name: 'Name a note', exact: true }).click()
+  await expect(
+    page.getByRole('img', { name: /^Marked position:/ }),
+  ).toHaveAttribute('aria-label', question!)
+  await expect(page.getByTestId('trainer-completed')).toHaveText('1')
+  await expect(page.getByTestId('trainer-first-try')).toHaveText('0/1')
+  await expect(
+    page.getByRole('button', { name: 'Show answer', exact: true }),
+  ).toBeVisible()
+})
+
 test('short phone screens keep frets readable and answers clear of the response', async ({
   page,
 }) => {
