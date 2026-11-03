@@ -177,6 +177,75 @@ export function Reader({
           )}
         </div>
       </header>
+      <section className="practice-panel">
+        <div>
+          <p className="eyebrow">LEAVE A NOTE FOR NEXT TIME</p>
+          <h2>How’s it feeling?</h2>
+          <p className="hint">
+            {tab.lastPlayedAt
+              ? `Last played ${new Date(tab.lastPlayedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+              : 'Your practice history starts here.'}
+          </p>
+        </div>
+        <div className="practice-controls">
+          <label>
+            Familiarity
+            <select
+              value={tab.status}
+              disabled={busy}
+              onChange={(event) =>
+                void update(
+                  { status: event.target.value },
+                  'Familiarity updated.',
+                )
+              }
+            >
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <option value={value} key={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() =>
+              void update({ markPlayed: true }, 'Today’s practice is recorded.')
+            }
+          >
+            <Check size={17} /> Played today
+          </button>
+        </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            void update({ notes }, 'Notes saved.')
+          }}
+        >
+          <label>
+            Practice notes
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              maxLength={10000}
+              rows={4}
+              placeholder="The transition to the B section. A better fingering. Something to return to."
+            />
+          </label>
+          <div className="notes-footer">
+            <p className="hint" role="status">
+              {notice}
+            </p>
+            <button
+              className="secondary"
+              disabled={busy || notes === tab.notes}
+            >
+              Save notes
+            </button>
+          </div>
+        </form>
+      </section>
       <div className="reader-actions">
         <button
           className="secondary"
@@ -345,75 +414,6 @@ export function Reader({
           />
         </Suspense>
       )}
-      <section className="practice-panel">
-        <div>
-          <p className="eyebrow">LEAVE A NOTE FOR NEXT TIME</p>
-          <h2>How’s it feeling?</h2>
-          <p className="hint">
-            {tab.lastPlayedAt
-              ? `Last played ${new Date(tab.lastPlayedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
-              : 'Your practice history starts here.'}
-          </p>
-        </div>
-        <div className="practice-controls">
-          <label>
-            Familiarity
-            <select
-              value={tab.status}
-              disabled={busy}
-              onChange={(event) =>
-                void update(
-                  { status: event.target.value },
-                  'Familiarity updated.',
-                )
-              }
-            >
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <option value={value} key={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              void update({ markPlayed: true }, 'Today’s practice is recorded.')
-            }
-          >
-            <Check size={17} /> Played today
-          </button>
-        </div>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            void update({ notes }, 'Notes saved.')
-          }}
-        >
-          <label>
-            Practice notes
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              maxLength={10000}
-              rows={4}
-              placeholder="The transition to the B section. A better fingering. Something to return to."
-            />
-          </label>
-          <div className="notes-footer">
-            <p className="hint" role="status">
-              {notice}
-            </p>
-            <button
-              className="secondary"
-              disabled={busy || notes === tab.notes}
-            >
-              Save notes
-            </button>
-          </div>
-        </form>
-      </section>
       {(tab.format !== 'link' || useScore) && (
         <div className="transport" aria-label="Practice controls">
           <button
