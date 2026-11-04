@@ -1,7 +1,7 @@
+import { instruments, type Instrument } from '../lib/instruments'
 import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import {
-  guitarStrings,
   pitchAt,
   pitchName,
   positionKey,
@@ -14,10 +14,14 @@ const frets = Array.from({ length: 13 }, (_, index) => index)
 type Focus = 'landmarks' | 'all' | number
 
 export function FretboardStudy({
+  instrument = 'guitar',
   spelling: initialSpelling,
 }: {
   spelling: Spelling
+  instrument?: Instrument
 }) {
+  const tuning = instruments[instrument]
+  const strings = tuning.strings
   const [spelling, setSpelling] = useState(initialSpelling)
   const [focus, setFocus] = useState<Focus>('landmarks')
   const [hidden, setHidden] = useState(false)
@@ -37,12 +41,13 @@ export function FretboardStudy({
     let string = position.string
     let row = activeFrets.indexOf(position.fret)
     if (event.key === 'ArrowLeft') string = Math.max(0, string - 1)
-    else if (event.key === 'ArrowRight') string = Math.min(5, string + 1)
+    else if (event.key === 'ArrowRight')
+      string = Math.min(strings.length - 1, string + 1)
     else if (event.key === 'ArrowUp') row = Math.max(0, row - 1)
     else if (event.key === 'ArrowDown')
       row = Math.min(activeFrets.length - 1, row + 1)
     else if (event.key === 'Home') string = 0
-    else if (event.key === 'End') string = 5
+    else if (event.key === 'End') string = strings.length - 1
     else return
     event.preventDefault()
     const key = positionKey({ string, fret: activeFrets[row] })
@@ -125,13 +130,16 @@ export function FretboardStudy({
           <p className="study-instruction" role="status">
             {hidden
               ? 'Say the note, then tap ? to check. Tap again to hide. Arrow keys move between notes.'
-              : 'Read across a fret from low E to high E. Hide the notes when you’re ready to try from memory.'}
+              : `Read across a fret from low E to ${tuning.highestString}. Hide the notes when you’re ready to try from memory.`}
           </p>
         </div>
-        <figure className="trainer-fretboard study-board">
+        <figure
+          className="trainer-fretboard study-board"
+          style={{ '--string-count': strings.length } as CSSProperties}
+        >
           <div className="fretboard-direction" aria-hidden="true">
             <span>Low E · thickest</span>
-            <span>High E · thinnest</span>
+            <span>{tuning.highestString} · thinnest</span>
           </div>
           <div
             ref={board}
@@ -140,7 +148,7 @@ export function FretboardStudy({
             aria-describedby="study-board-caption"
           >
             <div className="fretboard-row string-headings" role="row">
-              {guitarStrings.map((string) => (
+              {strings.map((string) => (
                 <span
                   key={string.number}
                   role="columnheader"
@@ -161,10 +169,13 @@ export function FretboardStudy({
                   data-fret={fret}
                   className={`fretboard-row study-row ${active ? 'study-active-row' : ''} ${fret === 0 ? 'open-strings' : ''} ${fret === 1 ? 'at-nut' : ''}`}
                 >
-                  {guitarStrings.map((string, index) => {
+                  {strings.map((string, index) => {
                     const position = { string: index, fret }
                     const key = positionKey(position)
-                    const name = pitchName(pitchAt(position), spelling)
+                    const name = pitchName(
+                      pitchAt(position, instrument),
+                      spelling,
+                    )
                     const visible = !hidden || revealed.includes(key)
                     return (
                       <div
@@ -207,8 +218,10 @@ export function FretboardStudy({
                         ) : fret === 0 ? (
                           <span className="study-open-note">{string.name}</span>
                         ) : null}
-                        {((landmarks.includes(fret) && index === 2) ||
-                          (fret === 12 && (index === 1 || index === 4))) && (
+                        {((landmarks.includes(fret) &&
+                          index === Math.floor((strings.length - 1) / 2)) ||
+                          (fret === 12 &&
+                            (index === 1 || index === strings.length - 2))) && (
                           <span className="fret-inlay" aria-hidden="true">
                             •
                           </span>
@@ -233,13 +246,19 @@ export function FretboardStudy({
           </figcaption>
         </figure>
         <div className="study-tip">
-          <strong>Two strings, one pattern.</strong>
+          <strong>
+            {instrument === 'bass'
+              ? 'Four strings, all fourths.'
+              : 'Two strings, one pattern.'}
+          </strong>
           <p>
-            Both E strings have the same note names at every fret. At fret 12,
-            all six strings repeat their open notes.
+            {instrument === 'bass'
+              ? 'Each neighboring string is five semitones higher: E–A–D–G.'
+              : 'Both E strings have the same note names at every fret.'}{' '}
+            At fret 12, every string repeats its open note one octave higher.
           </p>
           <p>
-            Standard tuning · E A D G B E. Names use international B / B♭
+            Standard tuning · {tuning.tuning}. Names use international B / B♭
             notation.
           </p>
         </div>

@@ -186,8 +186,8 @@ export function IntervalTrainer({
           </p>
           <p>
             Read the notes or identify the sound by ear. After each answer,
-            explore the semitone distance and how it translates to guitar frets.
-            Sound starts when you press Play.
+            explore the semitone distance and how it translates to frets on your
+            instrument. Sound starts when you press Play.
           </p>
           <button className="trainer-primary" onClick={onBegin}>
             Start practice <ArrowRight size={18} />

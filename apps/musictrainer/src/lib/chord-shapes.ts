@@ -1,4 +1,4 @@
-// Frets run from low E to high E; null means mute.
+// Frets run from lowest to highest string for the selected instrument; null means mute.
 export type ChordShape = {
   id: string
   name: string

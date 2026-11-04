@@ -1,3 +1,6 @@
+import { instruments, type Instrument } from './instruments'
+import { bassChordShapes } from './bass-chord-shapes'
+export { guitarStrings } from './instruments'
 import { chordShapes, type ChordShape } from './chord-shapes'
 import {
   defaultIntervalSettings,
@@ -23,16 +26,6 @@ import {
 } from './chord-tones'
 export { chordShapes, type ChordShape } from './chord-shapes'
 
-// Strings run left-to-right in a chord diagram: low E (6) to high E (1).
-export const guitarStrings = [
-  { name: 'E', number: 6, midi: 40 },
-  { name: 'A', number: 5, midi: 45 },
-  { name: 'D', number: 4, midi: 50 },
-  { name: 'G', number: 3, midi: 55 },
-  { name: 'B', number: 2, midi: 59 },
-  { name: 'E', number: 1, midi: 64 },
-] as const
-
 export const naturalPitches = [0, 2, 4, 5, 7, 9, 11]
 export const allPitches = Array.from({ length: 12 }, (_, index) => index)
 const sharps = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
@@ -42,10 +35,14 @@ export const pitchName = (pitch: number, spelling: Spelling = 'sharps') =>
   (spelling === 'sharps' ? sharps : flats)[((pitch % 12) + 12) % 12]
 export type Position = { string: number; fret: number }
 export const positionKey = ({ string, fret }: Position) => `${string}:${fret}`
-export const pitchAt = ({ string, fret }: Position) =>
-  (guitarStrings[string].midi + fret) % 12
-export const midiAt = ({ string, fret }: Position) =>
-  guitarStrings[string].midi + fret
+export const pitchAt = (
+  position: Position,
+  instrument: Instrument = 'guitar',
+) => midiAt(position, instrument) % 12
+export const midiAt = (
+  { string, fret }: Position,
+  instrument: Instrument = 'guitar',
+) => instruments[instrument].strings[string].midi + fret
 export const noteName = (
   midi: number,
   spelling: Spelling = 'sharps',
@@ -56,6 +53,7 @@ export type TrainerMode =
   'find' | 'name' | 'chords' | 'roots' | 'roles' | 'harmony' | 'intervals'
 export type TrainerSettings = HarmonySettings &
   IntervalSettings & {
+    instrument: Instrument
     mode: TrainerMode
     minFret: 0 | 5 | 12
     maxFret: 5 | 12 | 24
@@ -69,6 +67,7 @@ export type TrainerSettings = HarmonySettings &
 export const defaultTrainerSettings: TrainerSettings = {
   ...defaultHarmonySettings,
   ...defaultIntervalSettings,
+  instrument: 'guitar',
   mode: 'name',
   minFret: 0,
   maxFret: 12,
@@ -79,6 +78,19 @@ export const defaultTrainerSettings: TrainerSettings = {
   chords: 'all',
   toneVocabulary: 'foundation',
 }
+export function normalizeTrainerSettings(
+  settings: TrainerSettings,
+): TrainerSettings {
+  const strings = instruments[settings.instrument].strings
+  return {
+    ...settings,
+    string:
+      settings.string === 'all' || strings[settings.string]
+        ? settings.string
+        : 'all',
+  }
+}
+
 type Choice = { value: string; label: string }
 export type NoteQuestion = {
   mode: 'find' | 'name'
@@ -123,13 +135,17 @@ export function chordPositions(shape: ChordShape): Position[] {
 
 export function availablePositions(settings: TrainerSettings): Position[] {
   const positions: Position[] = []
-  for (let string = 0; string < 6; string++) {
+  for (
+    let string = 0;
+    string < instruments[settings.instrument].strings.length;
+    string++
+  ) {
     if (settings.string !== 'all' && settings.string !== string) continue
     for (let fret = settings.minFret; fret <= settings.maxFret; fret++) {
       const position = { string, fret }
       if (
         settings.notes === 'all' ||
-        naturalPitches.includes(pitchAt(position))
+        naturalPitches.includes(pitchAt(position, settings.instrument))
       )
         positions.push(position)
     }
@@ -156,11 +172,11 @@ function choose<T extends { id: string }>(
   return pool[Math.floor(random() * pool.length)]
 }
 
-function chordPitchKey(shape: ChordShape): string {
+function chordPitchKey(shape: ChordShape, instrument: Instrument): string {
   return [
     ...new Set(
       shape.frets.flatMap((fret, string) =>
-        fret === null ? [] : [pitchAt({ string, fret })],
+        fret === null ? [] : [pitchAt({ string, fret }, instrument)],
       ),
     ),
   ]
@@ -168,8 +184,14 @@ function chordPitchKey(shape: ChordShape): string {
     .join(',')
 }
 
+const shapeCatalogs = { guitar: chordShapes, bass: bassChordShapes }
+const toneCatalogs = { guitar: chordToneShapes, bass: bassChordShapes }
 const chordPitchKeys = new Map(
-  chordShapes.map((shape) => [shape.id, chordPitchKey(shape)]),
+  (Object.keys(shapeCatalogs) as Instrument[]).flatMap((instrument) =>
+    shapeCatalogs[instrument].map(
+      (shape) => [shape.id, chordPitchKey(shape, instrument)] as const,
+    ),
+  ),
 )
 
 export function nextQuestion(
@@ -182,7 +204,7 @@ export function nextQuestion(
   if (settings.mode === 'harmony')
     return nextHarmonyQuestion(settings, previous, random)
   if (settings.mode === 'roots' || settings.mode === 'roles') {
-    const shapes = chordToneShapes.filter(
+    const shapes = toneCatalogs[settings.instrument].filter(
       (shape) =>
         (settings.chords === 'all' || shape.family === settings.chords) &&
         (settings.toneVocabulary === 'all' ||
@@ -198,7 +220,8 @@ export function nextQuestion(
         ...selected,
         mode: 'roots',
         roots: chordPositions(selected.shape).filter(
-          (position) => pitchAt(position) === selected.shape.root,
+          (position) =>
+            pitchAt(position, settings.instrument) === selected.shape.root,
         ),
       }
     }
@@ -207,7 +230,7 @@ export function nextQuestion(
       const roles = [
         ...new Set(
           chordPositions(shape).map((position) =>
-            roleAtPitch(shape, pitchAt(position)),
+            roleAtPitch(shape, pitchAt(position, settings.instrument)),
           ),
         ),
       ]
@@ -220,7 +243,8 @@ export function nextQuestion(
     const selected = choose(candidates, previous, random)
     const positions = chordPositions(selected.shape).filter(
       (position) =>
-        roleAtPitch(selected.shape, pitchAt(position)) === selected.role,
+        roleAtPitch(selected.shape, pitchAt(position, settings.instrument)) ===
+        selected.role,
     )
     const vocabulary: ChordRole[] =
       settings.toneVocabulary === 'foundation'
@@ -246,14 +270,15 @@ export function nextQuestion(
     }
   }
   if (settings.mode === 'chords') {
-    const pool = chordShapes.filter(
+    const catalog = shapeCatalogs[settings.instrument]
+    const pool = catalog.filter(
       (shape) => settings.chords === 'all' || shape.family === settings.chords,
     )
     const shape = choose(pool, previous, random)
     // Different names can describe the same pitches (e.g. C6 and Am7,
     // or inversions of symmetrical dim7/aug chords). Don't offer those together.
     const equivalentNames = new Set(
-      chordShapes
+      catalog
         .filter(
           (item) =>
             chordPitchKeys.get(item.id) === chordPitchKeys.get(shape.id),
@@ -276,20 +301,24 @@ export function nextQuestion(
   }
   const candidates = availablePositions(settings).map((position) => ({
     position,
-    pitch: pitchAt(position),
+    pitch: pitchAt(position, settings.instrument),
     id:
       settings.mode === 'find'
-        ? `find:${position.string}:${pitchAt(position)}`
+        ? `find:${position.string}:${pitchAt(position, settings.instrument)}`
         : `name:${positionKey(position)}`,
   }))
   const pool = [...new Map(candidates.map((item) => [item.id, item])).values()]
   const selected = choose(pool, previous, random)
   const withOctave = settings.mode === 'name' && settings.octaves
-  const correct = withOctave ? midiAt(selected.position) : selected.pitch
+  const correct = withOctave
+    ? midiAt(selected.position, settings.instrument)
+    : selected.pitch
   const pitches = withOctave
     ? [
         ...new Set(
-          availablePositions({ ...settings, string: 'all' }).map(midiAt),
+          availablePositions({ ...settings, string: 'all' }).map((position) =>
+            midiAt(position, settings.instrument),
+          ),
         ),
       ]
     : settings.notes === 'natural'
@@ -326,7 +355,11 @@ export function isCorrectAnswer(
   if (question.mode === 'name')
     return (
       answer ===
-      String(settings.octaves ? midiAt(question.position) : question.pitch)
+      String(
+        settings.octaves
+          ? midiAt(question.position, settings.instrument)
+          : question.pitch,
+      )
     )
   const parts = answer.split(':')
   if (parts.length !== 2 || !parts.every((part) => /^\d+$/.test(part)))
@@ -336,7 +369,7 @@ export function isCorrectAnswer(
     string === question.position.string &&
     fret >= settings.minFret &&
     fret <= settings.maxFret &&
-    pitchAt({ string, fret }) === question.pitch
+    pitchAt({ string, fret }, settings.instrument) === question.pitch
   )
 }
 

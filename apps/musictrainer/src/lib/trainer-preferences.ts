@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { majorKeys } from './harmony'
-import { defaultTrainerSettings } from './trainer'
+import { defaultTrainerSettings, normalizeTrainerSettings } from './trainer'
 
 export const trainerPreferencesKey = 'musictrainer:settings'
 export const trainerPreferencesSchema = z
   .object({
+    instrument: z.enum(['guitar', 'bass']),
     mode: z.enum([
       'name',
       'find',
@@ -31,7 +32,9 @@ export const trainerPreferencesSchema = z
     intervalVocabulary: z.enum(['foundation', 'all']),
   })
   .partial()
-  .transform((value) => ({ ...defaultTrainerSettings, ...value }))
+  .transform((value) =>
+    normalizeTrainerSettings({ ...defaultTrainerSettings, ...value }),
+  )
   .refine((value) =>
     [
       [0, 5],

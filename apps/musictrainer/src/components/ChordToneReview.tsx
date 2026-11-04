@@ -1,3 +1,4 @@
+import type { Instrument } from '../lib/instruments'
 import {
   chordFormulas,
   chordRoles,
@@ -11,16 +12,29 @@ import {
   type ChordShape,
 } from '../lib/trainer'
 
-export function ChordToneReview({ shape }: { shape: ChordShape }) {
+export function ChordToneReview({
+  shape,
+  instrument = 'guitar',
+}: {
+  shape: ChordShape
+  instrument?: Instrument
+}) {
   const positions = chordPositions(shape)
   const roles = new Set(
-    positions.map((position) => roleAtPitch(shape, pitchAt(position))),
+    positions.map((position) =>
+      roleAtPitch(shape, pitchAt(position, instrument)),
+    ),
   )
   const bass = positions.reduce((lowest, position) =>
-    midiAt(position) < midiAt(lowest) ? position : lowest,
+    midiAt(position, instrument) < midiAt(lowest, instrument)
+      ? position
+      : lowest,
   )
   const rootName = chordToneName(shape, '1')
-  const bassName = chordToneName(shape, roleAtPitch(shape, pitchAt(bass)))
+  const bassName = chordToneName(
+    shape,
+    roleAtPitch(shape, pitchAt(bass, instrument)),
+  )
   return (
     <section className="chord-tone-review" aria-label="Chord breakdown">
       <h3>

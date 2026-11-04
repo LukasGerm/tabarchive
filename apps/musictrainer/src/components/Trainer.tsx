@@ -1,3 +1,4 @@
+import { instruments, type Instrument } from '../lib/instruments'
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import {
   ArrowRight,
@@ -11,10 +12,10 @@ import {
 import {
   availablePositions,
   chordPositions,
-  guitarStrings,
   initialTrainerState,
   midiAt,
   nextPracticeQuestion,
+  normalizeTrainerSettings,
   noteName,
   pitchAt,
   pitchName,
@@ -73,6 +74,8 @@ export default function Trainer() {
   const prompt = useRef<HTMLHeadingElement>(null)
   const focusNext = useRef(false)
   const { settings, question: currentQuestion, status, wrongAnswers } = state
+  const instrument = instruments[settings.instrument]
+  const strings = instrument.strings
   const question =
     currentQuestion?.mode === 'harmony' || currentQuestion?.mode === 'intervals'
       ? null
@@ -105,7 +108,7 @@ export default function Trainer() {
     })
   }
   function configure(update: Partial<TrainerSettings>) {
-    const config = { ...settings, ...update }
+    const config = normalizeTrainerSettings({ ...settings, ...update })
     if (currentQuestion) begin(config)
     else dispatch({ type: 'settings', settings: config })
   }
@@ -120,7 +123,7 @@ export default function Trainer() {
           : question
             ? String(
                 question.mode === 'name' && settings.octaves
-                  ? midiAt(question.position)
+                  ? midiAt(question.position, settings.instrument)
                   : question.pitch,
               )
             : ''
@@ -133,7 +136,7 @@ export default function Trainer() {
           ? `${chordToneName(question.shape, '1')} is the root`
           : question
             ? noteName(
-                midiAt(question.position),
+                midiAt(question.position, settings.instrument),
                 settings.spelling,
                 question.mode === 'name' && settings.octaves,
               )
@@ -145,7 +148,10 @@ export default function Trainer() {
           notes: 'all',
           string: question.position.string,
         })
-          .filter((position) => pitchAt(position) === question.pitch)
+          .filter(
+            (position) =>
+              pitchAt(position, settings.instrument) === question.pitch,
+          )
           .map(({ fret }) => (fret === 0 ? 'open' : `fret ${fret}`))
           .join(' or ')
       : ''
@@ -162,7 +168,7 @@ export default function Trainer() {
   else if (wrongAnswers.length) {
     if (question.mode === 'find') {
       const [string, fret] = wrongAnswers.at(-1)!.split(':').map(Number)
-      feedback = `That’s ${pitchName(pitchAt({ string, fret }), settings.spelling)}. ${string !== question.position.string ? `Use string ${6 - question.position.string}.` : 'Try another fret.'}`
+      feedback = `That’s ${pitchName(pitchAt({ string, fret }, settings.instrument), settings.spelling)}. ${string !== question.position.string ? `Use string ${strings[question.position.string].number}.` : 'Try another fret.'}`
     } else feedback = 'Not quite. Try another answer.'
   } else if (question.mode === 'chords')
     feedback = 'Name the chord. × mute · ○ open · line = barre.'
@@ -172,7 +178,10 @@ export default function Trainer() {
     feedback = `Tap every root note in this shape. ${state.foundRoots.length} of ${question.roots.length} found.`
     if (wrongAnswers.length) {
       const [string, fret] = wrongAnswers.at(-1)!.split(':').map(Number)
-      const role = roleAtPitch(question.shape, pitchAt({ string, fret }))
+      const role = roleAtPitch(
+        question.shape,
+        pitchAt({ string, fret }, settings.instrument),
+      )
       feedback += ` ${chordToneName(question.shape, role)} is the ${chordRoles[role].label.toLowerCase()} (${role}); keep looking for roots.`
     }
   } else if (question?.mode === 'roles' && !resolved && !wrongAnswers.length) {
@@ -186,6 +195,17 @@ export default function Trainer() {
       <div className="trainer-shell">
         <header className="trainer-topbar">
           <h1>Music Trainer</h1>
+          <select
+            className="trainer-instrument"
+            aria-label="Instrument"
+            value={settings.instrument}
+            onChange={(event) =>
+              configure({ instrument: event.target.value as Instrument })
+            }
+          >
+            <option value="guitar">Guitar</option>
+            <option value="bass">Bass</option>
+          </select>
           {!studyOpen && (
             <button
               ref={settingsButton}
@@ -226,7 +246,11 @@ export default function Trainer() {
           ))}
         </div>
         {studyOpen ? (
-          <FretboardStudy spelling={settings.spelling} />
+          <FretboardStudy
+            key={settings.instrument}
+            instrument={settings.instrument}
+            spelling={settings.spelling}
+          />
         ) : settings.mode === 'intervals' ? (
           <IntervalTrainer
             question={
@@ -352,13 +376,13 @@ export default function Trainer() {
                   </h2>
                   <p className="exercise-description">
                     {!question
-                      ? 'Standard tuning · low E on the left'
+                      ? `${instrument.label} · ${instrument.tuning} · low E on the left`
                       : toneQuestion
-                        ? `${toneQuestion.shape.name} · ${settings.toneVocabulary === 'foundation' ? 'Foundations' : 'Full vocabulary'}${toneQuestion.mode === 'roles' ? ` · string ${6 - toneQuestion.position.string}, ${toneQuestion.position.fret === 0 ? 'open' : `fret ${toneQuestion.position.fret}`}` : ' · tap the chord notes'}`
+                        ? `${toneQuestion.shape.name} · ${settings.toneVocabulary === 'foundation' ? 'Foundations' : 'Full vocabulary'}${toneQuestion.mode === 'roles' ? ` · string ${strings[toneQuestion.position.string].number}, ${toneQuestion.position.fret === 0 ? 'open' : `fret ${toneQuestion.position.fret}`}` : ' · tap the chord notes'}`
                         : question.mode === 'chords'
-                          ? 'Low E → high E · standard tuning'
+                          ? `Low E → ${instrument.highestString} · standard tuning`
                           : 'position' in question
-                            ? `String ${6 - question.position.string} · ${guitarStrings[question.position.string].name}${question.mode === 'name' ? ` · ${question.position.fret === 0 ? 'open' : `fret ${question.position.fret}`}` : ' · tap the fretboard'}`
+                            ? `String ${strings[question.position.string].number} · ${strings[question.position.string].name}${question.mode === 'name' ? ` · ${question.position.fret === 0 ? 'open' : `fret ${question.position.fret}`}` : ' · tap the fretboard'}`
                             : ''}
                   </p>
                 </div>
@@ -372,7 +396,8 @@ export default function Trainer() {
                 className={`trainer-workspace ${!question ? 'not-started' : ''}`}
               >
                 <TrainerFretboard
-                  key={question?.id ?? 'preview'}
+                  key={`${settings.instrument}:${question?.id ?? 'preview'}`}
+                  instrument={settings.instrument}
                   minFret={settings.minFret}
                   maxFret={settings.maxFret}
                   spelling={settings.spelling}
@@ -404,7 +429,10 @@ export default function Trainer() {
                       ? Object.fromEntries(
                           chordPositions(toneQuestion.shape).map((position) => [
                             positionKey(position),
-                            roleAtPitch(toneQuestion.shape, pitchAt(position)),
+                            roleAtPitch(
+                              toneQuestion.shape,
+                              pitchAt(position, settings.instrument),
+                            ),
                           ]),
                         )
                       : undefined
@@ -503,8 +531,8 @@ export default function Trainer() {
                           : question.mode === 'roles'
                             ? explainChordRole(question.shape, question.role)
                             : question.mode === 'find'
-                              ? `Play ${answerLocation} on string ${6 - question.position.string}.`
-                              : `${guitarStrings[question.position.string].name} string + ${question.position.fret} semitones${settings.octaves ? ' · sounding pitch' : ''}.`}
+                              ? `Play ${answerLocation} on string ${strings[question.position.string].number}.`
+                              : `${strings[question.position.string].name} string + ${question.position.fret} semitones${settings.octaves ? ' · sounding pitch' : ''}.`}
                     </p>
                   )}
                 </div>
@@ -526,7 +554,10 @@ export default function Trainer() {
                   ))}
               </div>
               {toneQuestion && resolved && (
-                <ChordToneReview shape={toneQuestion.shape} />
+                <ChordToneReview
+                  shape={toneQuestion.shape}
+                  instrument={settings.instrument}
+                />
               )}
             </section>
           </>
@@ -583,7 +614,7 @@ export default function Trainer() {
             ? settings.mode === 'intervals'
               ? 'Intervals · learn the distance between two pitches.'
               : 'Major-key harmony · listen, answer, and explore the notes.'
-            : 'Standard tuning · E A D G B E'}
+            : `${instrument.label} · standard tuning · ${instrument.tuning}`}
         </p>
         {!chordMode && !theoryMode && (
           <div className="trainer-settings-fields">
@@ -600,11 +631,15 @@ export default function Trainer() {
                   })
                 }
               >
-                <option value="all">All six strings</option>
-                {guitarStrings.map((string, index) => (
+                <option value="all">{instrument.allStrings}</option>
+                {strings.map((string, index) => (
                   <option key={index} value={index}>
                     {string.number} · {string.name}
-                    {index === 0 ? ' (low)' : index === 5 ? ' (high)' : ''}
+                    {index === 0
+                      ? ' (low)'
+                      : index === strings.length - 1
+                        ? ' (high)'
+                        : ''}
                   </option>
                 ))}
               </select>
@@ -646,7 +681,9 @@ export default function Trainer() {
                     configure({ octaves: event.target.value === 'true' })
                   }
                 >
-                  <option value="true">Note + octave (E2)</option>
+                  <option value="true">
+                    Note + octave ({noteName(strings[0].midi)})
+                  </option>
                   <option value="false">Note only (E)</option>
                 </select>
               </label>
@@ -671,8 +708,9 @@ export default function Trainer() {
               </select>
             </label>
             <p>
-              Foundations covers major, minor, 7, maj7, and m7 chords, including
-              inversions. All adds diminished, suspended, and extended chords.
+              Foundations covers major, minor, 7, maj7, and m7 chords
+              {settings.instrument === 'guitar' ? ', including inversions' : ''}
+              . All adds diminished, suspended, and extended chords.
             </p>
           </div>
         )}
@@ -686,22 +724,26 @@ export default function Trainer() {
         </p>
         {chordMode && (
           <p>
-            Open shapes use open strings. Movable shapes include barres and
-            compact fingerings with no open strings. All mixes both collections.
+            Open shapes use open strings. Movable shapes have no open strings.
+            All mixes both collections.{' '}
+            {settings.instrument === 'bass'
+              ? 'Bass shapes use four strings. Play the notes one at a time to practice arpeggios.'
+              : 'Guitar shapes include barres and compact fingerings.'}
           </p>
         )}
         {!theoryMode && (
           <details>
             <summary>How to read the fretboard</summary>
             <p>
-              Low E (string 6) is on the left; high E (string 1) is on the
-              right. Each fret raises the pitch by one semitone. Frets 12 and 24
-              repeat the open note in higher octaves.
+              Low E (string {strings[0].number}) is on the left;{' '}
+              {instrument.highestString} (string 1) is on the right. Each fret
+              raises the pitch by one semitone. Frets 12 and 24 repeat the open
+              note in higher octaves.
             </p>
             <p>
-              The red marker is the note to name. E2 is the open low E’s
-              sounding pitch. Note names use international B / B♭ notation. C♯
-              and D♭ are the same pitch here.
+              The red marker is the note to name. {noteName(strings[0].midi)} is
+              the open low E’s sounding pitch. Note names use international B /
+              B♭ notation. C♯ and D♭ are the same pitch here.
             </p>
             <p>
               For chords: × means mute, ○ means open, and a line joins a barre.

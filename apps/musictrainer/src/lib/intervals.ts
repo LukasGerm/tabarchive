@@ -119,5 +119,5 @@ export function intervalExplanation(question: IntervalQuestion): string {
     semitones === 0
       ? 'the same pitch'
       : `${semitones} semitone${semitones === 1 ? '' : 's'} ${question.direction === 'harmonic' ? 'apart' : question.direction === 'descending' ? 'down' : 'up'}`
-  return `${first.name} ${question.direction === 'harmonic' ? 'and' : '→'} ${second.name}: ${movement}. ${label} (${question.interval.short}) spans ${semitones} semitone${semitones === 1 ? '' : 's'} — ${semitones === 0 ? 'the same fret' : `${semitones} fret${semitones === 1 ? '' : 's'} apart`} on one guitar string.${semitones === 6 ? ' These notes spell an augmented fourth; a diminished fifth also spans six semitones.' : ''}`
+  return `${first.name} ${question.direction === 'harmonic' ? 'and' : '→'} ${second.name}: ${movement}. ${label} (${question.interval.short}) spans ${semitones} semitone${semitones === 1 ? '' : 's'} — ${semitones === 0 ? 'the same fret' : `${semitones} fret${semitones === 1 ? '' : 's'} apart`} on one string.${semitones === 6 ? ' These notes spell an augmented fourth; a diminished fifth also spans six semitones.' : ''}`
 }

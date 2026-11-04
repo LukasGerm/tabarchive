@@ -1,3 +1,4 @@
+import { instruments, type Instrument } from '../lib/instruments'
 import {
   useEffect,
   useRef,
@@ -6,7 +7,6 @@ import {
   type KeyboardEvent,
 } from 'react'
 import {
-  guitarStrings,
   chordPositions,
   pitchAt,
   pitchName,
@@ -17,6 +17,7 @@ import {
 } from '../lib/trainer'
 
 export function TrainerFretboard({
+  instrument = 'guitar',
   minFret = 0,
   maxFret,
   activeString,
@@ -30,6 +31,7 @@ export function TrainerFretboard({
   shape,
   resolved = false,
 }: {
+  instrument?: Instrument
   minFret?: number
   maxFret: number
   activeString?: number
@@ -43,6 +45,8 @@ export function TrainerFretboard({
   shape?: ChordShape
   resolved?: boolean
 }) {
+  const tuning = instruments[instrument]
+  const strings = tuning.strings
   const board = useRef<HTMLDivElement>(null)
   const [focus, setFocus] = useState<Position>(
     shape
@@ -58,7 +62,7 @@ export function TrainerFretboard({
         ? chordPositions(shape)[0]
         : { string: activeString ?? 0, fret: minFret },
     )
-  }, [activeString, minFret, maxFret, shape])
+  }, [activeString, minFret, maxFret, shape, instrument])
   const fretted =
     shape?.frets.filter((fret): fret is number => fret !== null && fret > 0) ??
     []
@@ -70,19 +74,19 @@ export function TrainerFretboard({
         (_, index) => minFret + index,
       )
   const description = shape
-    ? `Chord shape, low E to high E: ${shape.frets.map((fret, index) => `string ${6 - index} ${fret === null ? 'muted' : fret === 0 ? 'open' : `fret ${fret}`}`).join(', ')}.${marked ? ` Marked position: string ${6 - marked.string}, ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.` : ''}${
+    ? `Chord shape, low E to ${tuning.highestString}: ${shape.frets.map((fret, index) => `string ${strings[index].number} ${fret === null ? 'muted' : fret === 0 ? 'open' : `fret ${fret}`}`).join(', ')}.${marked ? ` Marked position: string ${strings[marked.string].number}, ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.` : ''}${
         toneLabels
           ? ` Roles: ${chordPositions(shape)
               .map(
                 (position) =>
-                  `string ${6 - position.string}: ${toneLabels[positionKey(position)]}`,
+                  `string ${strings[position.string].number}: ${toneLabels[positionKey(position)]}`,
               )
               .join(', ')}.`
           : ''
       }`
     : marked
-      ? `Marked position: string ${6 - marked.string} (${guitarStrings[marked.string].name}), ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.`
-      : 'Guitar fretboard. Low E is on the left; fret numbers increase downward.'
+      ? `Marked position: string ${strings[marked.string].number} (${strings[marked.string].name}), ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.`
+      : `${tuning.label} fretboard. Low E is on the left; fret numbers increase downward.`
 
   function move(event: KeyboardEvent<HTMLButtonElement>, position: Position) {
     if (shape) {
@@ -113,7 +117,7 @@ export function TrainerFretboard({
     const next = { ...position }
     if (event.key === 'ArrowLeft') next.string = Math.max(0, next.string - 1)
     else if (event.key === 'ArrowRight')
-      next.string = Math.min(5, next.string + 1)
+      next.string = Math.min(strings.length - 1, next.string + 1)
     else if (event.key === 'ArrowUp')
       next.fret = Math.max(minFret, next.fret - 1)
     else if (event.key === 'ArrowDown')
@@ -135,13 +139,14 @@ export function TrainerFretboard({
       className="trainer-fretboard"
       style={
         {
+          '--string-count': strings.length,
           '--fretboard-min-height': `${24 + frets.length * (onPick ? 44 : 28)}px`,
         } as CSSProperties
       }
     >
       <div className="fretboard-direction" aria-hidden="true">
         <span>Low E · thickest</span>
-        <span>High E · thinnest</span>
+        <span>{tuning.highestString} · thinnest</span>
       </div>
       <div
         ref={board}
@@ -159,7 +164,7 @@ export function TrainerFretboard({
         }
       >
         <div className="fretboard-row string-headings" aria-hidden="true">
-          {guitarStrings.map((string, index) => (
+          {strings.map((string, index) => (
             <span
               key={index}
               className={activeString === index ? 'focused-string' : ''}
@@ -177,14 +182,14 @@ export function TrainerFretboard({
             className={`fretboard-row ${fret === 0 ? 'open-strings' : ''} ${fret === 1 ? 'at-nut' : ''}`}
             aria-hidden={!onPick || undefined}
           >
-            {guitarStrings.map((string, index) => {
+            {strings.map((string, index) => {
               const position = { string: index, fret }
               const key = positionKey(position)
               const isMarked = marked?.string === index && marked.fret === fret
               const isAnswer =
                 answerPitch !== undefined &&
                 activeString === index &&
-                pitchAt(position) === answerPitch
+                pitchAt(position, instrument) === answerPitch
               const isWrong = wrongPositions.includes(key)
               const isChordTone = shape?.frets[index] === fret
               const foundRoot = foundRoots.includes(key)
@@ -206,7 +211,7 @@ export function TrainerFretboard({
                         ? '○'
                         : '●'
                       : isAnswer || (isMarked && resolved)
-                        ? pitchName(pitchAt(position), spelling)
+                        ? pitchName(pitchAt(position, instrument), spelling)
                         : isMarked
                           ? '●'
                           : isWrong
@@ -221,9 +226,9 @@ export function TrainerFretboard({
                 <>
                   <span className="fret-marker">{marker}</span>
                   {(([3, 5, 7, 9, 15, 17, 19, 21].includes(fret) &&
-                    index === 2) ||
+                    index === Math.floor((strings.length - 1) / 2)) ||
                     ([12, 24].includes(fret) &&
-                      (index === 1 || index === 4))) && (
+                      (index === 1 || index === strings.length - 2))) && (
                     <span className="fret-inlay" aria-hidden="true">
                       •
                     </span>
