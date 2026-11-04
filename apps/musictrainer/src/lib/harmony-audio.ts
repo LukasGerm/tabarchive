@@ -30,7 +30,10 @@ export function scheduleHarmonySound(
     oscillator.frequency.setValueAtTime(midiFrequency(midi), when)
     envelope.gain.setValueAtTime(0, when)
     envelope.gain.linearRampToValueAtTime(peak, when + 0.015)
-    envelope.gain.exponentialRampToValueAtTime(peak * 0.35, when + 0.16)
+    envelope.gain.exponentialRampToValueAtTime(
+      peak * 0.35,
+      when + Math.min(0.16, sound.seconds * 0.4),
+    )
     envelope.gain.setValueAtTime(peak * 0.35, when + sound.seconds * 0.75)
     envelope.gain.exponentialRampToValueAtTime(
       0.0001,
@@ -50,13 +53,14 @@ export function scheduleHarmonySound(
 
 export class HarmonyPlayer {
   private context: AudioContext | null = null
-  private timers: ReturnType<typeof setTimeout>[] = []
+  private timers = new Set<ReturnType<typeof setTimeout>>()
 
   // Only called by a Play button, so creating/resuming audio stays in a gesture.
   async play(
     sounds: HarmonySound[],
     onStep: (step: number) => void,
     onEnd: () => void,
+    options: { loop?: boolean } = {},
   ) {
     this.stop()
     requestPlaybackSession()
@@ -67,24 +71,43 @@ export class HarmonyPlayer {
       // Stop, navigation, or a newer play request may happen while resume waits.
       if (this.context !== context) return
       if (context.state !== 'running') throw new Error('Audio did not start.')
-      let offset = 0.04
-      const start = context.currentTime
-      for (const sound of sounds) {
-        scheduleHarmonySound(context, sound, start + offset)
-        this.timers.push(
-          setTimeout(() => {
-            if (this.context === context) onStep(sound.step)
-          }, offset * 1000),
+      const later = (callback: () => void, seconds: number) => {
+        const timer = setTimeout(
+          () => {
+            this.timers.delete(timer)
+            if (this.context === context) callback()
+          },
+          Math.max(0, seconds) * 1000,
         )
-        offset += sound.seconds
+        this.timers.add(timer)
       }
-      this.timers.push(
-        setTimeout(() => {
-          if (this.context !== context) return
-          this.stop()
-          onEnd()
-        }, offset * 1000),
-      )
+      const duration = sounds.reduce((sum, sound) => sum + sound.seconds, 0)
+      const schedule = (start: number) => {
+        let offset = 0
+        for (const sound of sounds) {
+          scheduleHarmonySound(context, sound, start + offset)
+          later(() => onStep(sound.step), start + offset - context.currentTime)
+          offset += sound.seconds
+        }
+        if (options.loop && duration > 0) {
+          // Queue the next cycle before its boundary; use the audio clock to
+          // avoid accumulating timer drift or adding a pause between loops.
+          later(
+            () =>
+              schedule(Math.max(start + duration, context.currentTime + 0.01)),
+            start + duration - context.currentTime - 0.1,
+          )
+        } else {
+          later(
+            () => {
+              this.stop()
+              onEnd()
+            },
+            start + duration - context.currentTime,
+          )
+        }
+      }
+      schedule(context.currentTime + 0.04)
     } catch (error) {
       if (this.context !== context) return
       this.stop()
@@ -94,7 +117,7 @@ export class HarmonyPlayer {
 
   stop() {
     for (const timer of this.timers) clearTimeout(timer)
-    this.timers = []
+    this.timers.clear()
     const context = this.context
     this.context = null
     if (context && context.state !== 'closed')

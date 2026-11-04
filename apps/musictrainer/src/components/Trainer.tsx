@@ -35,6 +35,7 @@ import {
 import { ChordToneReview } from './ChordToneReview'
 import { HarmonyTrainer } from './HarmonyTrainer'
 import { IntervalTrainer } from './IntervalTrainer'
+import { ProgressionPlayground } from './ProgressionPlayground'
 import { readStored, writeStored } from '../lib/browser-storage'
 import {
   trainerPreferencesKey,
@@ -60,6 +61,7 @@ export default function Trainer() {
   const [state, dispatch] = useReducer(trainerReducer, initialTrainerState)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [studyOpen, setStudyOpen] = useState(false)
+  const [playgroundOpen, setPlaygroundOpen] = useState(false)
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   useEffect(() => {
     const saved = readStored(trainerPreferencesKey, trainerPreferencesSchema)
@@ -190,7 +192,7 @@ export default function Trainer() {
 
   return (
     <main
-      className={`trainer-page mode-${studyOpen ? 'study' : settings.mode}`}
+      className={`trainer-page mode-${playgroundOpen ? 'playground' : studyOpen ? 'study' : settings.mode}`}
     >
       <div className="trainer-shell">
         <header className="trainer-topbar">
@@ -206,7 +208,7 @@ export default function Trainer() {
             <option value="guitar">Guitar</option>
             <option value="bass">Bass</option>
           </select>
-          {!studyOpen && (
+          {!studyOpen && !playgroundOpen && (
             <button
               ref={settingsButton}
               className="trainer-icon-button"
@@ -221,7 +223,10 @@ export default function Trainer() {
           <button
             aria-label="Learn fretboard"
             aria-pressed={studyOpen}
-            onClick={() => setStudyOpen(true)}
+            onClick={() => {
+              setPlaygroundOpen(false)
+              setStudyOpen(true)
+            }}
           >
             Learn
           </button>
@@ -230,22 +235,36 @@ export default function Trainer() {
               key={mode.value}
               aria-pressed={
                 !studyOpen &&
+                !playgroundOpen &&
                 (settings.mode === mode.value ||
                   (mode.value === 'roots' && toneMode))
               }
               onClick={() => {
                 setStudyOpen(false)
+                setPlaygroundOpen(false)
                 const sameExercise =
                   settings.mode === mode.value ||
                   (mode.value === 'roots' && toneMode)
-                if (!studyOpen || !sameExercise) configure({ mode: mode.value })
+                if ((!studyOpen && !playgroundOpen) || !sameExercise)
+                  configure({ mode: mode.value })
               }}
             >
               {mode.label}
             </button>
           ))}
+          <button
+            aria-pressed={playgroundOpen}
+            onClick={() => {
+              setStudyOpen(false)
+              setPlaygroundOpen(true)
+            }}
+          >
+            Playground
+          </button>
         </div>
-        {studyOpen ? (
+        {playgroundOpen ? (
+          <ProgressionPlayground instrument={settings.instrument} />
+        ) : studyOpen ? (
           <FretboardStudy
             key={settings.instrument}
             instrument={settings.instrument}
@@ -562,7 +581,7 @@ export default function Trainer() {
             </section>
           </>
         )}
-        {!studyOpen && (
+        {!studyOpen && !playgroundOpen && (
           <footer className="trainer-session" aria-label="Session progress">
             <span>
               <strong data-testid="trainer-completed">{state.completed}</strong>{' '}

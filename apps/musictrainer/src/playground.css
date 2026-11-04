@@ -1,0 +1,630 @@
+.playground {
+  padding: 28px 0 18px;
+}
+.playground h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.playground p {
+  line-height: 1.6;
+}
+.playground-heading {
+  margin-bottom: 24px;
+}
+.playground-heading h2 {
+  font-size: clamp(34px, 5vw, 46px);
+  margin: 7px 0 8px;
+}
+.playground-heading p {
+  color: #667468;
+  font-size: 14px;
+}
+.playground-eyebrow {
+  display: block;
+  color: #64775d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.playground-keybar {
+  display: grid;
+  grid-template-columns: 110px 175px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  background: #e9eddf;
+  border: 1px solid #d8dfcd;
+  border-radius: 12px;
+}
+.playground label {
+  font-size: 11px;
+  gap: 6px;
+}
+.playground select {
+  padding: 9px 11px;
+  font-size: 13px;
+}
+.playground-scale {
+  padding-left: 12px;
+}
+.playground-scale > span {
+  font-size: 12px;
+  color: #5e7055;
+}
+.playground-scale p {
+  margin-top: 4px;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+.playground-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+.playground-section-heading p,
+.playground-comparison > p,
+.playground-practice-invite > p {
+  font-size: 12px;
+  color: #667468;
+  margin-top: 5px;
+}
+.playground-palette {
+  margin: 24px 0;
+}
+.playground-chord-palette {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.playground-chord-palette button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 96px;
+  padding: 12px 5px;
+  border: 1px solid #d5dbcc;
+  border-radius: 10px;
+  background: #fffef9;
+}
+.playground-chord-palette button:hover {
+  background: #edf1e5;
+  border-color: #7e956f;
+}
+.playground-chord-palette button > span {
+  color: #6c7a64;
+  font-size: 12px;
+}
+.playground-chord-palette strong {
+  font-size: clamp(15px, 2.4vw, 23px);
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.playground-chord-palette svg {
+  color: #8b9b7c;
+}
+.playground-composition {
+  padding: 20px;
+  border: 1px solid #d6ddcf;
+  background: #fffef9;
+  border-radius: 14px;
+}
+.playground-progression {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 9px;
+}
+.playground-progression li {
+  min-width: 0;
+}
+.playground-progression button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 131px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  border: 1px solid #e0e2d9;
+  background: #f6f6ef;
+}
+.playground-progression button > span:not(.playground-slot-number) {
+  font-size: 12px;
+  color: #69765f;
+}
+.playground-progression strong {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 450;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  padding: 0 5px;
+}
+.playground-progression small {
+  font-size: 10px;
+  color: #6e796b;
+}
+.playground-slot-number {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-size: 9px;
+  color: #7a8971;
+}
+.playground-progression button.is-selected {
+  border: 2px solid #52734b;
+  background: #e9eedf;
+}
+.playground-progression button.is-playing {
+  background: var(--green);
+  color: white;
+}
+.playground-progression button.is-playing span,
+.playground-progression button.is-playing small {
+  color: #e3ebd8;
+}
+.playground-text-button {
+  padding: 8px 0;
+  min-height: 44px;
+  color: #4f6b47;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.playground-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 10px;
+  padding: 12px 0 16px;
+}
+.playground-presets span {
+  font-size: 10px;
+  color: #74806e;
+}
+.playground-presets button {
+  border-bottom: 1px solid #b8c6ab;
+  padding: 7px 0;
+  min-height: 36px;
+  font-size: 11px;
+  color: #526b47;
+}
+.playground-transport {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  padding-top: 17px;
+  border-top: 1px solid #e0e4d6;
+}
+.playground .trainer-primary {
+  min-height: 46px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px 16px;
+}
+.playground-transport > .trainer-primary {
+  margin-right: auto;
+  align-self: end;
+}
+.playground-transport label {
+  flex: 0 1 136px;
+}
+.playground-loop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 10px;
+  border-radius: 8px;
+  color: #6e7c63;
+  font-size: 11px;
+}
+.playground-loop[aria-pressed='true'] {
+  color: #2e5343;
+  background: #e8eddf;
+}
+.playground-explore {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 32px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+.playground h3.playground-chord-title {
+  font: 42px var(--serif);
+  margin: 7px 0 16px;
+}
+.playground-chord-title span {
+  font:
+    14px 'DM Sans Variable',
+    sans-serif;
+  color: #748368;
+  margin-left: 7px;
+}
+.playground-step-settings {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 65px;
+  gap: 10px;
+}
+.playground-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 10px 0 16px;
+}
+.playground-edit-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 40px;
+  min-width: 40px;
+  padding: 6px;
+  color: #617457;
+  font-size: 11px;
+  border: 1px solid #dce0d3;
+  border-radius: 6px;
+}
+.playground-tones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+.playground-tones li {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 10px;
+  border-radius: 8px;
+  background: #eaeedf;
+}
+.playground-tones strong {
+  font-size: 23px;
+  font-weight: 500;
+}
+.playground-tones span {
+  font-size: 11px;
+}
+.playground-tones small {
+  font-size: 9px;
+  color: #64725d;
+}
+.playground-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.playground-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 12px;
+  min-height: 44px;
+  border: 1px solid #cbd5c1;
+  border-radius: 7px;
+  color: #3e5e36;
+  font-size: 12px;
+  background: #fffef9;
+}
+.playground-secondary:hover {
+  background: #e9eddf;
+}
+.playground-explore-board {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.playground-explore-board .trainer-fretboard {
+  margin: 0;
+  width: 100%;
+}
+.playground .labeled-tone .fret-marker {
+  background: var(--green);
+  color: var(--paper);
+  width: 27px;
+  height: 27px;
+  font-size: 10px;
+  box-shadow: 0 0 0 2px #e6ebdc;
+}
+.playground-footnote {
+  font-size: 11px;
+  color: #6e7b64;
+  margin-top: 12px;
+}
+.playground-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  padding: 25px 0;
+}
+.playground-comparison > button {
+  margin-top: 14px;
+}
+.playground-versions {
+  margin-top: 15px;
+  display: grid;
+  gap: 12px;
+}
+.playground-versions p {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.playground-versions p > strong {
+  display: inline-block;
+  margin-right: 7px;
+  color: #47723b;
+}
+.playground-versions small {
+  color: #697b60;
+}
+.playground-difference {
+  padding: 12px;
+  border-radius: 7px;
+  background: #eaeedf;
+}
+.playground-practice-invite {
+  align-self: start;
+  border-radius: 12px;
+  padding: 20px;
+  background: #e9eddf;
+}
+.playground-practice-invite h3 {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 450;
+  margin-top: 9px;
+}
+.playground-practice-invite button {
+  margin-top: 16px;
+}
+.playground-library {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+.playground-save {
+  display: flex;
+  gap: 10px;
+  max-width: 520px;
+}
+.playground-save label {
+  flex: 1;
+  min-width: 0;
+}
+.playground-save input {
+  font-size: 13px;
+}
+.playground-saved-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+}
+.playground-saved-list li {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #d5ddcc;
+  border-radius: 8px;
+  min-width: 0;
+}
+.playground-saved-list li > button:first-child {
+  flex: 1;
+  text-align: left;
+  padding: 12px;
+  min-width: 0;
+}
+.playground-saved-list li > button:last-child {
+  padding: 12px;
+  color: #7b8274;
+}
+.playground-saved-list strong {
+  display: block;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.playground-saved-list span {
+  display: block;
+  font-size: 11px;
+  margin-top: 6px;
+  color: #718065;
+  overflow-wrap: anywhere;
+}
+.playground-empty {
+  text-align: center;
+  padding: 30px 10px;
+  color: #708264;
+  font-size: 13px;
+}
+.playground-notice {
+  min-height: 22px;
+  font-size: 12px;
+  color: #4c7140;
+}
+.playground-practice {
+  background: #fffef9;
+  border: 1px solid #d7dece;
+  border-radius: 14px;
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+.playground-practice h2 {
+  font-size: 30px;
+  outline: none;
+}
+.playground-practice > p {
+  color: #67735e;
+  font-size: 13px;
+}
+.playground-practice > button {
+  justify-self: start;
+}
+.playground-lesson-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.playground-lesson-steps span {
+  padding: 7px 10px;
+  font-size: 11px;
+  color: #75856b;
+  border-radius: 6px;
+  background: #f0f2e9;
+}
+.playground-lesson-steps [aria-current='step'] {
+  background: #dfe8d4;
+  color: #365a2e;
+}
+.playground-answer-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+.playground-answer-choices button {
+  border: 1px solid #d5dfca;
+  background: #f5f7ef;
+  padding: 14px 8px;
+  border-radius: 8px;
+  min-height: 48px;
+}
+.playground-answer-choices button.is-correct {
+  border-color: #577c42;
+  background: #dfead4;
+  opacity: 1;
+}
+.playground-practice-board {
+  max-width: 360px;
+  width: 100%;
+  margin: auto;
+}
+.playground-recall-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+.playground-recall-row li {
+  min-width: 56px;
+  background: #edf1e4;
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+}
+.playground-recap {
+  font-size: 24px !important;
+  font-family: var(--serif);
+}
+.playground-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 700px) {
+  .playground {
+    padding-top: 22px;
+  }
+  .playground-keybar {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 12px;
+    padding: 14px;
+  }
+  .playground-scale {
+    grid-column: 1 / -1;
+    padding: 0;
+  }
+  .playground-scale > span {
+    display: none;
+  }
+  .playground-chord-palette {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .playground-chord-palette button {
+    min-height: 86px;
+    padding: 10px 4px;
+  }
+  .playground-chord-palette strong {
+    font-size: 20px;
+  }
+  .playground-section-heading {
+    align-items: start;
+  }
+  .playground-section-heading > label {
+    flex: 0 0 103px;
+  }
+  .playground-composition {
+    padding: 14px;
+  }
+  .playground-progression {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .playground-progression button {
+    min-height: 125px;
+  }
+  .playground-transport {
+    flex-wrap: wrap;
+    gap: 12px 8px;
+  }
+  .playground-transport > .trainer-primary {
+    flex: 1;
+  }
+  .playground-transport label {
+    flex: 1 1 40%;
+  }
+  .playground-explore {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 24px 0;
+  }
+  .playground-explore-board {
+    max-width: 320px;
+    width: 100%;
+    margin: auto;
+  }
+  .playground-bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .playground-saved-list {
+    grid-template-columns: 1fr;
+  }
+  .playground-step-settings {
+    grid-template-columns: 1.1fr 1fr 55px;
+    gap: 6px;
+  }
+  .playground-step-settings select {
+    padding: 9px 5px;
+  }
+  .playground-practice {
+    padding: 16px;
+  }
+  .playground-practice h2 {
+    font-size: 26px;
+  }
+}

@@ -454,7 +454,8 @@ export function voiceChords(chords: HarmonyChord[]): number[][] {
       previous ?? (chord.pitches.length === 3 ? [60, 64, 67] : [60, 64, 67, 71])
     const distance = (notes: number[]) =>
       notes.reduce(
-        (sum, note, index) => sum + Math.abs(note - reference[index]),
+        (sum, note, index) =>
+          sum + Math.abs(note - reference[Math.min(index, reference.length - 1)]),
         0,
       )
     candidates.sort((a, b) => distance(a) - distance(b))

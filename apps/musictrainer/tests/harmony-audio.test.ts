@@ -137,3 +137,29 @@ it('only the newest play request can publish steps or completion', async () => {
   expect(contexts.every((context) => context.state === 'closed')).toBe(true)
   expect(vi.getTimerCount()).toBe(0)
 })
+
+it('loops on the audio clock and cancels every scheduled cycle on Stop', async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(0)
+  const contexts = delayedAudio()
+  const player = new HarmonyPlayer()
+  const step = vi.fn(),
+    end = vi.fn()
+  const pending = player.play([{ notes: [], seconds: 1, step: 0 }], step, end, {
+    loop: true,
+  })
+  Object.defineProperty(contexts[0], 'currentTime', {
+    get: () => Date.now() / 1000,
+  })
+  contexts[0].finishResume()
+  await pending
+  await vi.advanceTimersByTimeAsync(3100)
+  expect(step).toHaveBeenCalledTimes(4)
+  expect(end).not.toHaveBeenCalled()
+  expect(contexts).toHaveLength(1)
+  player.stop()
+  await vi.advanceTimersByTimeAsync(5000)
+  expect(step).toHaveBeenCalledTimes(4)
+  expect(contexts[0].state).toBe('closed')
+  expect(vi.getTimerCount()).toBe(0)
+})
