@@ -1,17 +1,24 @@
-# Allowlist build inputs. No local secrets, imports, browser artifacts, or Git.
+# Only application build inputs enter either Docker build context.
 **
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
-!tsconfig.json
-!vite.config.ts
-!scripts/
-!scripts/backup.ts
-!scripts/backup-cli.ts
-!scripts/build-backup.mjs
-!src/
-!src/**
-!public/
-!public/**
-public/font/
-public/soundfont/
+!apps/
+!apps/tabarchive/
+!apps/musictrainer/
+!apps/*/package.json
+!apps/*/tsconfig.json
+!apps/*/vite.config.ts
+!apps/*/Dockerfile
+!apps/musictrainer/index.html
+!apps/musictrainer/nginx.conf
+!apps/*/src/
+!apps/*/src/**
+!apps/*/public/
+!apps/*/public/**
+!apps/tabarchive/scripts/
+!apps/tabarchive/scripts/backup.ts
+!apps/tabarchive/scripts/backup-cli.ts
+!apps/tabarchive/scripts/build-backup.mjs
+apps/*/public/font/
+apps/*/public/soundfont/
