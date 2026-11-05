@@ -155,6 +155,53 @@ test('learning shows landmark notes and spelling on mobile and desktop', async (
   ).toBe(true)
 })
 
+test('learning plays each pressed note in its instrument and string octave', async ({
+  page,
+}) => {
+  await openTrainer(page)
+  const oscillators = await page.evaluateHandle(() => {
+    const notes: OscillatorNode[] = []
+    const createOscillator = AudioContext.prototype.createOscillator
+    AudioContext.prototype.createOscillator = function () {
+      const oscillator = createOscillator.call(this)
+      notes.push(oscillator)
+      return oscillator
+    }
+    return notes
+  })
+  const playedNotes = () =>
+    oscillators.evaluate((notes) =>
+      notes.map((note) =>
+        Math.round(69 + 12 * Math.log2(note.frequency.value / 440)),
+      ),
+    )
+
+  await page.getByRole('button', { name: 'Learn fretboard' }).click()
+  const board = page.getByRole('table', { name: 'Notes on the fretboard' })
+  const lowG = board.getByRole('button', {
+    name: 'String 6 (E), fret 3: G',
+    exact: true,
+  })
+  await lowG.focus()
+  expect(await playedNotes()).toEqual([])
+  await lowG.tap()
+  await expect.poll(playedNotes).toEqual([43])
+  await lowG.press('End')
+  await page.keyboard.press('Enter')
+  await expect.poll(playedNotes).toEqual([43, 67])
+
+  await page.getByRole('combobox', { name: 'Instrument' }).selectOption('bass')
+  await page.getByRole('button', { name: 'All 0–12' }).click()
+  await page.getByRole('button', { name: 'Hide notes', exact: true }).click()
+  await board
+    .getByRole('button', { name: 'String 4 (E), open: hidden note' })
+    .tap()
+  await expect.poll(playedNotes).toEqual([43, 67, 28])
+  await expect(
+    board.getByRole('button', { name: 'String 4 (E), open: E' }),
+  ).toHaveAttribute('aria-pressed', 'true')
+})
+
 test('learning supports recall by touch and keyboard without changing quiz progress', async ({
   page,
 }) => {

@@ -1,7 +1,15 @@
 import { instruments, type Instrument } from '../lib/instruments'
-import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
-import { Eye, EyeOff, RotateCcw } from 'lucide-react'
 import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react'
+import { Eye, EyeOff, RotateCcw } from 'lucide-react'
+import { HarmonyPlayer } from '../lib/harmony-audio'
+import {
+  midiAt,
   pitchAt,
   pitchName,
   positionKey,
@@ -27,9 +35,37 @@ export function FretboardStudy({
   const [hidden, setHidden] = useState(false)
   const [revealed, setRevealed] = useState<string[]>([])
   const [cursor, setCursor] = useState('0:3')
+  const [sounding, setSounding] = useState<string | null>(null)
+  const [audioError, setAudioError] = useState(false)
+  const player = useRef<HarmonyPlayer | null>(null)
   const board = useRef<HTMLDivElement>(null)
   const activeFrets =
     focus === 'all' ? frets : focus === 'landmarks' ? landmarks : [focus]
+
+  useEffect(() => () => player.current?.stop(), [])
+
+  async function pressNote(position: Position) {
+    const key = positionKey(position)
+    if (hidden) {
+      setRevealed((current) =>
+        current.includes(key)
+          ? current.filter((item) => item !== key)
+          : [...current, key],
+      )
+    }
+    setAudioError(false)
+    player.current ??= new HarmonyPlayer()
+    try {
+      await player.current.play(
+        [{ notes: [midiAt(position, instrument)], seconds: 0.65, step: 0 }],
+        () => setSounding(key),
+        () => setSounding(null),
+      )
+    } catch {
+      setSounding(null)
+      setAudioError(true)
+    }
+  }
 
   function changeFocus(value: Focus) {
     setFocus(value)
@@ -129,9 +165,15 @@ export function FretboardStudy({
           </div>
           <p className="study-instruction" role="status">
             {hidden
-              ? 'Say the note, then tap ? to check. Tap again to hide. Arrow keys move between notes.'
-              : `Read across a fret from low E to ${tuning.highestString}. Hide the notes when you’re ready to try from memory.`}
+              ? 'Say the note, then tap ? to hear it and reveal its name. Tap again to hide it.'
+              : 'Tap a note to hear it. Hide the notes when you’re ready to try from memory.'}{' '}
+            Use the arrow keys to move between notes.
           </p>
+          {audioError && (
+            <p className="harmony-audio-error" role="alert">
+              Audio couldn’t start. Enable audio and try the note again.
+            </p>
+          )}
         </div>
         <figure
           className="trainer-fretboard study-board"
@@ -189,32 +231,24 @@ export function FretboardStudy({
                         }
                       >
                         {active ? (
-                          hidden ? (
-                            <button
-                              className="study-note-button"
-                              data-position={key}
-                              tabIndex={cursor === key ? 0 : -1}
-                              aria-label={`String ${string.number} (${string.name}), ${fret === 0 ? 'open' : `fret ${fret}`}: ${visible ? name : 'hidden note'}`}
-                              aria-pressed={visible}
-                              onFocus={() => setCursor(key)}
-                              onKeyDown={(event) => move(event, position)}
-                              onClick={() =>
-                                setRevealed((current) =>
-                                  current.includes(key)
-                                    ? current.filter((item) => item !== key)
-                                    : [...current, key],
-                                )
-                              }
+                          <button
+                            type="button"
+                            className="study-note-button"
+                            data-position={key}
+                            data-sounding={sounding === key || undefined}
+                            tabIndex={cursor === key ? 0 : -1}
+                            aria-label={`String ${string.number} (${string.name}), ${fret === 0 ? 'open' : `fret ${fret}`}: ${visible ? name : 'hidden note'}`}
+                            aria-pressed={hidden ? visible : undefined}
+                            onFocus={() => setCursor(key)}
+                            onKeyDown={(event) => move(event, position)}
+                            onClick={() => pressNote(position)}
+                          >
+                            <span
+                              className={`fret-marker ${visible ? '' : 'study-hidden-note'}`}
                             >
-                              <span
-                                className={`fret-marker ${visible ? '' : 'study-hidden-note'}`}
-                              >
-                                {visible ? name : '?'}
-                              </span>
-                            </button>
-                          ) : (
-                            <span className="fret-marker">{name}</span>
-                          )
+                              {visible ? name : '?'}
+                            </span>
+                          </button>
                         ) : fret === 0 ? (
                           <span className="study-open-note">{string.name}</span>
                         ) : null}

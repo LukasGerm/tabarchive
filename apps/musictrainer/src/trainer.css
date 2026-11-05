@@ -770,6 +770,11 @@
   outline: 3px solid var(--green);
   outline-offset: -3px;
 }
+.study-note-button[data-sounding] .fret-marker {
+  box-shadow:
+    0 0 0 2px var(--paper),
+    0 0 0 4px var(--green);
+}
 .study-active-row .study-hidden-note {
   background: var(--paper);
   color: var(--green);
