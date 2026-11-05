@@ -17,7 +17,7 @@ test('switching to bass repairs a guitar-only string, grades sounding pitches, a
   await page.getByRole('button', { name: 'Start practice' }).click()
   await selector(page).selectOption('bass')
   await expect(page.locator('.string-headings strong')).toHaveText([
-    'E',
+    'Low E',
     'A',
     'D',
     'G',
@@ -40,6 +40,13 @@ test('switching to bass repairs a guitar-only string, grades sounding pitches, a
     .getAttribute('aria-label'))!
   const string = 4 - Number(description.match(/string (\d)/)![1])
   const fret = Number(description.match(/fret (\d+)/)?.[1] ?? 0)
+  const board = page.getByRole('img', { name: /^Marked position:/ })
+  await expect(board.locator('.focused-string')).toHaveText(
+    ['Low E', 'A', 'D', 'G'][string],
+  )
+  await expect(board.locator(`[data-fret="${fret}"] .marked-fret`)).toHaveText(
+    fret === 0 ? 'Open' : String(fret),
+  )
   const midi = tuning[string] + fret
   const answer = names[midi % 12] + (Math.floor(midi / 12) - 1)
   await page.getByRole('button', { name: answer, exact: true }).click()

@@ -76,8 +76,10 @@ test('builds, edits, transposes, compares, and saves ideas on a narrow screen', 
     .getByRole('combobox', { name: 'Instrument', exact: true })
     .selectOption('bass')
   await expect(
-    page.getByRole('region', { name: 'Explore selected chord' }),
-  ).toContainText('G · thinnest')
+    page
+      .getByRole('region', { name: 'Explore selected chord' })
+      .locator('.string-headings strong'),
+  ).toHaveText(['Low E', 'A', 'D', 'G'])
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

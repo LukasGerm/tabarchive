@@ -1,3 +1,4 @@
+import { FretboardNeck, StringHeadings } from './FretboardNeck'
 import { instruments, type Instrument } from '../lib/instruments'
 import {
   useEffect,
@@ -73,6 +74,15 @@ export function TrainerFretboard({
         { length: maxFret - minFret + 1 },
         (_, index) => minFret + index,
       )
+  const firstFretted = frets.find((fret) => fret > 0) ?? 1
+  const heights = frets.map((fret) => {
+    if (fret === 0) return onPick ? 44 : 32
+    const firstHeight = frets.length <= 6 ? 57 : 33
+    return Math.max(
+      onPick ? 44 : 28,
+      Math.round(firstHeight * 2 ** (-(fret - firstFretted) / 12)),
+    )
+  })
   const description = shape
     ? `Chord shape, low E to ${tuning.highestString}: ${shape.frets.map((fret, index) => `string ${strings[index].number} ${fret === null ? 'muted' : fret === 0 ? 'open' : `fret ${fret}`}`).join(', ')}.${marked ? ` Marked position: string ${strings[marked.string].number}, ${marked.fret === 0 ? 'open' : `fret ${marked.fret}`}.` : ''}${
         toneLabels
@@ -137,22 +147,14 @@ export function TrainerFretboard({
   return (
     <figure
       className="trainer-fretboard"
-      style={
-        {
-          '--string-count': strings.length,
-          '--fretboard-min-height': `${24 + frets.length * (onPick ? 44 : 28)}px`,
-        } as CSSProperties
-      }
+      data-interactive={onPick ? true : undefined}
+      style={{ '--string-count': strings.length } as CSSProperties}
     >
-      <div className="fretboard-direction" aria-hidden="true">
-        <span>Low E · thickest</span>
-        <span>{tuning.highestString} · thinnest</span>
-      </div>
       <div
         ref={board}
-        className={`fretboard-grid ${shape ? 'chord-fretboard' : ''}`}
+        className="fretboard-grid"
         style={{
-          gridTemplateRows: `24px ${frets.map((fret) => (fret === 0 ? `${onPick ? 44 : 28}px` : `minmax(${onPick ? 44 : 28}px, 1fr)`)).join(' ')}`,
+          gridTemplateRows: `var(--heading-height) ${heights.map((height) => height + 'px').join(' ')}`,
         }}
         role={onPick ? 'group' : 'img'}
         aria-label={
@@ -163,23 +165,20 @@ export function TrainerFretboard({
             : description
         }
       >
-        <div className="fretboard-row string-headings" aria-hidden="true">
-          {strings.map((string, index) => (
-            <span
-              key={index}
-              className={activeString === index ? 'focused-string' : ''}
-            >
-              <strong>{string.name}</strong>
-              <small>{string.number}</small>
-            </span>
-          ))}
-          <span />
-        </div>
+        <FretboardNeck
+          instrument={instrument}
+          frets={frets}
+          heights={heights}
+        />
+        <StringHeadings
+          instrument={instrument}
+          highlighted={marked?.string ?? activeString}
+        />
         {frets.map((fret) => (
           <div
             key={fret}
             data-fret={fret}
-            className={`fretboard-row ${fret === 0 ? 'open-strings' : ''} ${fret === 1 ? 'at-nut' : ''}`}
+            className={`fretboard-row ${fret === 0 ? 'open-strings' : ''}`}
             aria-hidden={!onPick || undefined}
           >
             {strings.map((string, index) => {
@@ -216,31 +215,13 @@ export function TrainerFretboard({
                           ? '●'
                           : isWrong
                             ? '×'
-                            : fret === 0 && !shape
-                              ? '○'
-                              : '')
-              const style = {
-                '--string-weight': `${2.5 - index * 0.3}px`,
-              } as CSSProperties
-              const content = (
-                <>
-                  <span className="fret-marker">{marker}</span>
-                  {(([3, 5, 7, 9, 15, 17, 19, 21].includes(fret) &&
-                    index === Math.floor((strings.length - 1) / 2)) ||
-                    ([12, 24].includes(fret) &&
-                      (index === 1 || index === strings.length - 2))) && (
-                    <span className="fret-inlay" aria-hidden="true">
-                      •
-                    </span>
-                  )}
-                </>
-              )
+                            : '')
+              const content = <span className="fret-marker">{marker}</span>
               return onPick && (!shape || isChordTone) ? (
                 <button
                   key={index}
                   type="button"
                   className={classes}
-                  style={style}
                   data-position={key}
                   tabIndex={
                     focus.string === index && focus.fret === fret ? 0 : -1
@@ -260,7 +241,6 @@ export function TrainerFretboard({
                 <span
                   key={index}
                   className={classes}
-                  style={style}
                   aria-hidden={onPick ? true : undefined}
                 >
                   {content}
@@ -268,10 +248,10 @@ export function TrainerFretboard({
               )
             })}
             <span
-              className={`fret-number ${[0, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24].includes(fret) ? 'landmark' : ''}`}
+              className={`fret-number ${marked?.fret === fret ? 'marked-fret' : ''}`}
               aria-hidden="true"
             >
-              {fret}
+              <span>{fret === 0 ? 'Open' : fret}</span>
             </span>
           </div>
         ))}
@@ -279,7 +259,7 @@ export function TrainerFretboard({
       <figcaption>
         {shape
           ? '× muted · ○ open · ● fretted · line = barre'
-          : '0 = open string · one fret = one semitone'}
+          : '↓ Toward the body'}
       </figcaption>
     </figure>
   )

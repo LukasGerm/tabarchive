@@ -314,7 +314,7 @@ test('short phone screens keep frets readable and answers clear of the response'
   }
 })
 
-test('full-neck note naming keeps five answers alongside the board and reaches fret 24', async ({
+test('full-neck note naming puts five answers below the board on phones and reaches fret 24', async ({
   page,
 }) => {
   await openTrainer(page)
@@ -342,21 +342,21 @@ test('full-neck note naming keeps five answers alongside the board and reaches f
     await page.setViewportSize(viewport)
     const board = (await page.locator('.trainer-fretboard').boundingBox())!
     const options = (await choices.boundingBox())!
-    expect(options.x).toBeGreaterThanOrEqual(board.x + board.width)
-    expect(board.y + board.height).toBeLessThanOrEqual(viewport.height)
-    expect(options.y + options.height).toBeLessThanOrEqual(viewport.height)
+    expect(options.y).toBeGreaterThanOrEqual(board.y + board.height)
+    for (const button of await choices.getByRole('button').all()) {
+      const bounds = (await button.boundingBox())!
+      expect(bounds.y).toBe(options.y)
+      expect(bounds.width).toBeGreaterThanOrEqual(44)
+      expect(bounds.height).toBeGreaterThanOrEqual(48)
+    }
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true)
-    if (viewport.height >= 844) {
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollHeight <= window.innerHeight,
-        ),
-      ).toBe(true)
-    }
+    if (viewport.height < 844)
+      await choices.evaluate((row) => row.scrollIntoView({ block: 'center' }))
+    await expect(choices).toBeInViewport({ ratio: 1 })
     await capture(page, `trainer-name-${viewport.width}.png`)
   }
   await choices.getByRole('button', { name: await answer(), exact: true }).tap()

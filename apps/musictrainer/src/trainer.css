@@ -150,115 +150,109 @@
   padding: 0 22px;
 }
 .trainer-fretboard {
-  --fret-number-width: 34px;
+  --fret-number-width: 46px;
+  --heading-height: 40px;
   margin: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
   width: 100%;
-  max-width: 500px;
+  min-width: 0;
+  align-self: center;
   justify-self: center;
-}
-.fretboard-direction {
-  display: flex;
-  justify-content: space-between;
-  padding-right: 36px;
-  color: #667468;
-  font-size: 9px;
-  margin-bottom: 5px;
+  padding: 4px 0 8px;
+  border: 1px solid #d5dacd;
+  border-radius: 12px;
+  background: var(--paper);
 }
 .fretboard-grid {
+  position: relative;
   display: grid;
-  flex: 1;
-  min-height: var(--fretboard-min-height);
+  width: min(100%, 292px);
+  margin: auto;
+}
+.trainer-fretboard[data-interactive] .fretboard-grid,
+.study-board .fretboard-grid {
+  width: min(100%, 380px);
+}
+.fretboard-art {
+  position: absolute;
+  top: var(--heading-height);
+  left: 0;
+  width: calc(100% - var(--fret-number-width));
+  height: calc(100% - var(--heading-height));
+  pointer-events: none;
 }
 .fretboard-row {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--string-count, 6), minmax(0, 1fr)) var(
+  grid-template-columns: repeat(var(--string-count), minmax(0, 1fr)) var(
       --fret-number-width
     );
-  min-height: 0;
-}
-.fretboard-row > * {
-  min-width: 0;
 }
 .string-headings {
+  align-items: center;
   text-align: center;
-  color: #667468;
-  font-size: 11px;
+  color: var(--green);
+  font-size: 13px;
+  line-height: 1.2;
 }
 .string-headings strong {
-  font-weight: 500;
-}
-.string-headings small {
-  display: none;
+  white-space: nowrap;
+  font-weight: 650;
 }
 .string-headings .focused-string {
-  color: var(--green);
+  background: var(--green);
+  color: var(--paper);
+  padding: 3px 4px;
+  border-radius: 5px;
 }
 .fret-cell {
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  isolation: isolate;
+}
+.fret-cell.active-string {
+  background: #f4de9b29;
+}
+.fret-number {
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #e7e2d2;
-  border-bottom: 2px solid #b3b4a5;
-  padding: 0;
-  min-height: 0;
-  isolation: isolate;
-  border-radius: 0;
-}
-.fret-cell:first-child {
-  box-shadow: -8px 0 #d2d1c1;
-}
-.fret-cell:nth-child(2) {
-  background: #e4decb;
-}
-.fret-cell::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(50% - 1px);
-  width: var(--string-weight);
-  min-width: 1.5px;
-  background: #9a875b;
-  box-shadow:
-    1px 0 #796b4a,
-    -1px 0 #fffef980;
-  z-index: 1;
-  pointer-events: none;
-}
-.fret-cell.active-string {
-  background: #d4ddc5;
-}
-.at-nut .fret-cell {
-  background-image: linear-gradient(var(--green) 5px, transparent 5px);
-}
-.at-nut .fret-cell::before {
-  top: 5px;
-}
-.open-strings .fret-cell {
-  background: transparent;
-  border: 0;
-  color: #667468;
-  box-shadow: none;
-}
-.open-strings .fret-cell::before {
-  display: none;
-}
-.fret-number {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  color: #667468;
-  font-size: 10px;
+  color: #52665a;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
-.fret-number.landmark {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--green);
+.open-strings .fret-number {
+  font-size: 12px;
+}
+.marked-fret > span {
+  background: var(--green);
+  border-radius: 12px;
+  color: var(--paper);
+  padding: 2px 6px;
+  min-width: 23px;
+  text-align: center;
+  font-weight: 650;
+}
+.marked-fret::before {
+  content: '';
+  position: absolute;
+  width: calc((100% - 23px) / 2);
+  left: 0;
+  border-top: 1px dashed #718571;
+}
+.mode-name .fretboard-row:not(.open-strings) :is(.marked-note, .marked-fret) {
+  align-items: end;
+  padding-bottom: 3px;
+}
+.mode-name .fretboard-row:not(.open-strings) .marked-fret::before {
+  bottom: 14px;
 }
 .fret-marker {
   position: relative;
@@ -273,15 +267,12 @@
   z-index: 3;
 }
 .marked-note .fret-marker {
-  width: 20px;
-  height: 20px;
-  color: white;
-  font-size: 17px;
+  width: 22px;
+  height: 22px;
   background: #b65f47;
-  border: 3px solid #f8e4d8;
-  box-shadow:
-    0 0 0 3px #b65f47,
-    0 2px 8px #603a2326;
+  border: 3px solid var(--paper);
+  color: white;
+  font-size: 9px;
 }
 .answer-note .fret-marker {
   width: 24px;
@@ -295,16 +286,6 @@
 .wrong-note .fret-marker {
   background: #f1d9ce;
   color: #8a3e31;
-}
-.fret-inlay {
-  position: absolute;
-  left: calc(100% - 12px);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #b9b9a5;
-  font-size: 0;
-  pointer-events: none;
 }
 .fretboard-grid .barre-cell::after {
   content: '';
@@ -330,10 +311,10 @@
   box-shadow: 0 0 0 2px #e7e2d2;
 }
 .open-strings .chord-tone .fret-marker {
-  background: none;
+  background: var(--paper);
   box-shadow: none;
   color: var(--green);
-  font-size: 23px;
+  font-size: 22px;
 }
 .chord-tone.marked-note:not(.answer-note) .fret-marker {
   background: #b65f47;
@@ -356,11 +337,10 @@
   box-shadow: 0 0 0 3px #9aaa93;
 }
 .trainer-fretboard figcaption {
-  color: #667468;
-  font-size: 9px;
-  line-height: 1.3;
+  margin: 6px auto 0;
+  color: #52665a;
+  font-size: 12px;
   text-align: center;
-  padding: 8px 34px 0 0;
 }
 .trainer-choices {
   display: grid;
@@ -581,7 +561,7 @@
   min-height: 44px;
 }
 .mode-roots button.fret-cell:not([aria-disabled='true']):hover {
-  background: #c6d3b7;
+  background: #f6e9cc55;
 }
 .mode-find button.fret-cell {
   min-height: 44px;
@@ -590,10 +570,10 @@
   min-height: 44px;
 }
 .mode-find button.fret-cell:not([aria-disabled='true']):hover {
-  background: #c6d3b7;
+  background: #f6e9cc55;
 }
 .fret-cell:focus-visible {
-  outline: 3px solid var(--green);
+  outline: 3px solid #ffdf8c;
   outline-offset: -3px;
   z-index: 5;
 }
@@ -724,26 +704,11 @@
 .study-board {
   grid-column: 1;
   grid-row: 1 / span 2;
-  padding-left: 8px;
-}
-.study-board .string-headings {
-  min-height: 36px;
+  align-self: start;
 }
 .study-board .string-headings small {
   display: block;
-  font-size: 9px;
-}
-.study-row {
-  min-height: 24px;
-}
-.study-row.open-strings {
-  min-height: 32px;
-}
-.study-row.study-active-row {
-  min-height: 48px;
-}
-.study-active-row .fret-cell {
-  background-color: #dce5d4;
+  font-size: 10px;
 }
 .study-active-row .fret-marker {
   width: 32px;
@@ -753,6 +718,7 @@
   font-size: 14px;
 }
 .study-active-row .fret-number {
+  background: #e4ebdd;
   color: var(--green);
   font-size: 15px;
   font-weight: 650;
@@ -767,7 +733,7 @@
   z-index: 3;
 }
 .study-note-button:focus-visible {
-  outline: 3px solid var(--green);
+  outline: 3px solid #ffdf8c;
   outline-offset: -3px;
 }
 .study-note-button[data-sounding] .fret-marker {
@@ -781,6 +747,10 @@
   border: 1px dashed #7a8e70;
 }
 .study-open-note {
+  background: var(--paper);
+  color: var(--green);
+  padding: 0 3px;
+  border-radius: 3px;
   font-size: 12px;
 }
 
@@ -1239,7 +1209,7 @@
     grid-template-columns: 1fr;
   }
   .trainer-page {
-    padding: 10px 20px max(4px, env(safe-area-inset-bottom));
+    padding: 10px 16px max(4px, env(safe-area-inset-bottom));
   }
   .trainer-topbar {
     min-height: 44px;
@@ -1250,6 +1220,7 @@
     font-size: clamp(22px, 6.5vw, 26px);
   }
   .trainer-modes button {
+    min-height: 44px;
     font-size: 12px;
   }
   .trainer-ranges {
@@ -1258,52 +1229,53 @@
   }
   .trainer-ranges button {
     min-width: 56px;
+    min-height: 44px;
   }
   .trainer-question-heading {
     padding-bottom: 12px;
   }
   .trainer-question-heading h2 {
-    font-size: 23px;
+    font-size: 26px;
   }
   .exercise-description {
-    font-size: 11px;
-  }
-  .trainer-workspace {
-    padding: 0 0 0 10px;
-    gap: 16px;
-    grid-template-columns: minmax(0, 1fr) 94px;
-  }
-  .fretboard-direction {
-    font-size: 9px;
-    padding-right: 27px;
-  }
-  .trainer-fretboard {
-    --fret-number-width: 27px;
-  }
-  .fret-number.landmark {
     font-size: 13px;
   }
-  .fret-number {
-    font-size: 9px;
+  .trainer-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 10px;
+    padding: 0;
+    flex: none;
   }
-  .trainer-fretboard figcaption {
-    font-size: 8px;
-    padding-right: 27px;
+  .trainer-workspace .trainer-choices {
+    padding: 0;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(48px, auto);
   }
-  .trainer-choices {
-    gap: 9px;
-    padding-top: 28px;
+  .mode-name .trainer-choices {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
-  .trainer-choices button {
-    font-size: 23px;
-    padding: 4px;
-  }
-  .mode-chords .trainer-choices button {
-    font-size: 14px;
+  .mode-name .trainer-choices button {
     flex-direction: column;
+    gap: 1px;
+    font-size: clamp(16px, 5vw, 20px);
+    line-height: 1.1;
+    padding: 2px;
+  }
+  .mode-name .trainer-choices svg {
+    width: 12px;
+    height: 12px;
+  }
+  .fretboard-grid {
+    width: min(100%, 254px);
+  }
+  .trainer-fretboard[data-interactive],
+  .study-board {
+    --fret-number-width: 35px;
   }
   .trainer-response {
-    min-height: 72px;
+    min-height: 62px;
     gap: 10px;
     flex-wrap: wrap;
   }
@@ -1335,13 +1307,6 @@
   .trainer-page {
     padding-left: 8px;
     padding-right: 8px;
-  }
-  .trainer-workspace {
-    gap: 12px;
-    grid-template-columns: minmax(0, 1fr) 80px;
-  }
-  .trainer-choices button {
-    font-size: 21px;
   }
   .trainer-session {
     gap: 12px;

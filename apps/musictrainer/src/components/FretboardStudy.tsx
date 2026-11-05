@@ -1,3 +1,4 @@
+import { FretboardNeck, StringHeadings } from './FretboardNeck'
 import { instruments, type Instrument } from '../lib/instruments'
 import {
   useEffect,
@@ -41,6 +42,10 @@ export function FretboardStudy({
   const board = useRef<HTMLDivElement>(null)
   const activeFrets =
     focus === 'all' ? frets : focus === 'landmarks' ? landmarks : [focus]
+
+  const heights = frets.map((fret) =>
+    activeFrets.includes(fret) ? 48 : fret === 0 ? 32 : 24,
+  )
 
   useEffect(() => () => player.current?.stop(), [])
 
@@ -179,29 +184,22 @@ export function FretboardStudy({
           className="trainer-fretboard study-board"
           style={{ '--string-count': strings.length } as CSSProperties}
         >
-          <div className="fretboard-direction" aria-hidden="true">
-            <span>Low E · thickest</span>
-            <span>{tuning.highestString} · thinnest</span>
-          </div>
           <div
             ref={board}
+            className="fretboard-grid"
+            style={{
+              gridTemplateRows: `var(--heading-height) ${heights.map((height) => height + 'px').join(' ')}`,
+            }}
             role="table"
             aria-label="Notes on the fretboard"
             aria-describedby="study-board-caption"
           >
-            <div className="fretboard-row string-headings" role="row">
-              {strings.map((string) => (
-                <span
-                  key={string.number}
-                  role="columnheader"
-                  aria-label={`String ${string.number} (${string.name})`}
-                >
-                  <strong>{string.name}</strong>
-                  <small>{string.number}</small>
-                </span>
-              ))}
-              <span role="columnheader">Fret</span>
-            </div>
+            <FretboardNeck
+              instrument={instrument}
+              frets={frets}
+              heights={heights}
+            />
+            <StringHeadings instrument={instrument} study />
             {frets.map((fret) => {
               const active = activeFrets.includes(fret)
               return (
@@ -209,7 +207,7 @@ export function FretboardStudy({
                   key={fret}
                   role="row"
                   data-fret={fret}
-                  className={`fretboard-row study-row ${active ? 'study-active-row' : ''} ${fret === 0 ? 'open-strings' : ''} ${fret === 1 ? 'at-nut' : ''}`}
+                  className={`fretboard-row study-row ${active ? 'study-active-row' : ''} ${fret === 0 ? 'open-strings' : ''}`}
                 >
                   {strings.map((string, index) => {
                     const position = { string: index, fret }
@@ -224,11 +222,6 @@ export function FretboardStudy({
                         key={string.number}
                         role="cell"
                         className="fret-cell"
-                        style={
-                          {
-                            '--string-weight': `${2.5 - index * 0.3}px`,
-                          } as CSSProperties
-                        }
                       >
                         {active ? (
                           <button
@@ -252,14 +245,6 @@ export function FretboardStudy({
                         ) : fret === 0 ? (
                           <span className="study-open-note">{string.name}</span>
                         ) : null}
-                        {((landmarks.includes(fret) &&
-                          index === Math.floor((strings.length - 1) / 2)) ||
-                          (fret === 12 &&
-                            (index === 1 || index === strings.length - 2))) && (
-                          <span className="fret-inlay" aria-hidden="true">
-                            •
-                          </span>
-                        )}
                       </div>
                     )
                   })}
@@ -267,16 +252,16 @@ export function FretboardStudy({
                     className={`fret-number ${landmarks.includes(fret) || fret === 12 ? 'landmark' : ''}`}
                     role="rowheader"
                   >
-                    {fret}
+                    {fret === 0 ? 'Open' : fret}
                   </span>
                 </div>
               )
             })}
           </div>
           <figcaption id="study-board-caption">
-            0 = open string · one fret = one semitone
+            ↓ Toward the body · One fret = one semitone
             <br />
-            Green rows show your focus frets.
+            Green fret numbers show your focus frets.
           </figcaption>
         </figure>
         <div className="study-tip">
